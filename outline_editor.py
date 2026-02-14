@@ -339,6 +339,7 @@ def print_command_bar(current_heading_name=None, heading_key=None, current_subhe
         ("i", " <#> <text>", "insert"),
         ("e", " <#>", "edit"),
         ("d", " <#>", "delete"),
+        ("@", "a", "toggle"),
         ("p", "", "refresh"),
         ("q", "", "quit")
     ]
@@ -369,8 +370,10 @@ def print_command_bar(current_heading_name=None, heading_key=None, current_subhe
     print(f"{Colors.BRIGHT_BLACK}" + "─" * cols + f"{Colors.RESET}")
 
 
-def print_outline(editor, project_id):
+def print_outline(editor, project_id, collapsed_headings=None):
     """Print the entire outline with headings, subheadings, and sentences in unified view"""
+    if collapsed_headings is None:
+        collapsed_headings = set()
     major_categories = editor.get_major_categories(project_id)
     
     if not major_categories:
@@ -409,8 +412,17 @@ def print_outline(editor, project_id):
     for idx, (mc_id, mc_name, mc_order) in enumerate(major_categories):
         letter = string.ascii_lowercase[idx] if idx < 26 else f"#{idx}"
         
-        # Print heading
-        print(f"{Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}")
+        # Check if heading is collapsed
+        is_collapsed = letter in collapsed_headings
+        
+        # Print heading with collapse indicator
+        collapse_indicator = f"{Colors.DIM}[+]{Colors.RESET}" if is_collapsed else f"{Colors.DIM}[-]{Colors.RESET}"
+        print(f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}")
+        
+        # Skip content if collapsed
+        if is_collapsed:
+            print()
+            continue
         
         # Get subcategories for this heading
         subcategories = editor.get_subcategories(mc_id)
@@ -518,6 +530,7 @@ def main():
     current_major_category_name = None
     current_subcategory_id = None
     current_subcategory_name = None
+    collapsed_headings = set()  # Track which headings are collapsed
     
     while True:
         clear_screen()
@@ -533,7 +546,7 @@ def main():
         print(f"{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}{header_text}{padding}{Colors.RESET}")
         print(f"{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}" + " "*cols + f"{Colors.RESET}")
         
-        heading_map, subheading_map = print_outline(editor, project_id)
+        heading_map, subheading_map = print_outline(editor, project_id, collapsed_headings)
         
         # Find current heading key
         current_heading_key = None
@@ -562,6 +575,27 @@ def main():
         
         if command == 'q':
             break
+        
+        elif command == '@':
+            # Toggle collapse/expand for heading
+            match = re.match(r'^@([a-zA-Z])$', cmd, re.IGNORECASE)
+            if not match:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Invalid format. Use '@a' to toggle heading a")
+                continue
+            
+            letter = match.group(1).lower()
+            
+            if letter not in heading_map:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Heading [{letter}] doesn't exist")
+                continue
+            
+            # Toggle collapse state
+            if letter in collapsed_headings:
+                collapsed_headings.remove(letter)
+                print(f"\n{Colors.GREEN}✓{Colors.RESET} Heading [{letter}] expanded")
+            else:
+                collapsed_headings.add(letter)
+                print(f"\n{Colors.GREEN}✓{Colors.RESET} Heading [{letter}] collapsed")
         
         elif command == 'h':
             match = re.match(r'^h([a-zA-Z])(\d*)(.*)$', cmd, re.IGNORECASE)

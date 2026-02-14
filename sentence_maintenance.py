@@ -1,112 +1,121 @@
 #!/usr/bin/env python3
 """
-Sentence Maintenance - View, copy, and move sentences between projects and headings
+Sentence Maintenance Module
+View, copy, and move sentences between projects with collapsible views and paging
 """
 
 import sqlite3
 import os
-import sys
+import re
+import string
 
-# ANSI Color codes
+
 class Colors:
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
-    DIM = '\033[2m'
+    """ANSI color codes"""
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
     
-    # Foreground colors
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    CYAN = '\033[36m'
-    WHITE = '\033[37m'
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
     
-    # Bright foreground colors
-    BRIGHT_BLACK = '\033[90m'
-    BRIGHT_GREEN = '\033[92m'
-    BRIGHT_YELLOW = '\033[93m'
-    BRIGHT_BLUE = '\033[94m'
-    BRIGHT_CYAN = '\033[96m'
-    BRIGHT_WHITE = '\033[97m'
+    BRIGHT_BLACK = "\033[90m"
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_BLUE = "\033[94m"
+    BRIGHT_MAGENTA = "\033[95m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_WHITE = "\033[97m"
     
-    # Background colors
-    BG_BLUE = '\033[44m'
+    BG_BLUE = "\033[44m"
+
+
+def get_terminal_size():
+    """Get terminal size"""
+    try:
+        rows, cols = os.popen('stty size', 'r').read().split()
+        return int(rows), int(cols)
+    except:
+        return 24, 80
+
+
+def clear_screen():
+    """Clear the terminal screen"""
+    os.system('clear' if os.name != 'nt' else 'cls')
 
 
 class SentenceMaintenance:
-    def __init__(self, db_path: str = "project_outlines.db"):
+    def __init__(self, db_path="project_outlines.db"):
         self.db_path = db_path
-        self.conn = None
-        self.cursor = None
-        self.connect()
-    
-    def connect(self):
-        """Connect to database"""
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(db_path)
         self.cursor = self.conn.cursor()
     
     def close(self):
-        """Close database connection"""
-        if self.conn:
-            self.conn.close()
+        self.conn.close()
     
     def get_all_projects(self):
         """Get all projects"""
         self.cursor.execute("SELECT id, name FROM projects ORDER BY name")
         return self.cursor.fetchall()
     
-    def get_major_categories(self, project_id: int):
-        """Get all major categories in a project"""
-        self.cursor.execute("""
-            SELECT id, name, sort_order 
-            FROM major_categories 
-            WHERE project_id = ? 
-            ORDER BY sort_order
-        """, (project_id,))
-        return self.cursor.fetchall()
-    
-    def get_subcategories(self, major_category_id: int):
-        """Get all subcategories for a major category"""
-        self.cursor.execute("""
-            SELECT id, name, sort_order 
-            FROM subcategories 
-            WHERE major_category_id = ? 
-            ORDER BY sort_order
-        """, (major_category_id,))
-        return self.cursor.fetchall()
-    
-    def get_sentences(self, subcategory_id: int):
-        """Get all sentences in a subcategory"""
-        self.cursor.execute("""
-            SELECT id, content, sort_order
-            FROM sentences
-            WHERE subcategory_id = ?
-            ORDER BY sort_order
-        """, (subcategory_id,))
-        return self.cursor.fetchall()
-    
-    def get_sentence_by_id(self, sentence_id: int):
-        """Get a sentence by ID with full context"""
+    def get_project_structure(self, project_id):
+        """Get complete structure of a project with sentence IDs"""
         self.cursor.execute("""
             SELECT 
-                s.id,
-                s.content,
-                s.subcategory_id,
-                mc.name as major_cat,
-                sc.name as subcat,
-                mc.project_id,
-                p.name as project_name,
                 mc.id as mc_id,
-                sc.id as sc_id
-            FROM sentences s
-            JOIN subcategories sc ON s.subcategory_id = sc.id
-            JOIN major_categories mc ON sc.major_category_id = mc.id
-            JOIN projects p ON mc.project_id = p.id
-            WHERE s.id = ?
-        """, (sentence_id,))
-        return self.cursor.fetchone()
+                mc.name as mc_name,
+                mc.sort_order as mc_order,
+                sc.id as sc_id,
+                sc.name as sc_name,
+                sc.sort_order as sc_order,
+                s.id as s_id,
+                s.content as s_content,
+                s.sort_order as s_order
+            FROM major_categories mc
+            LEFT JOIN subcategories sc ON mc.id = sc.major_category_id
+            LEFT JOIN sentences s ON sc.id = s.subcategory_id
+            WHERE mc.project_id = ?
+            ORDER BY mc.sort_order, sc.sort_order, s.sort_order
+        """, (project_id,))
+        
+        results = self.cursor.fetchall()
+        
+        # Organize into structure
+        structure = {}
+        for mc_id, mc_name, mc_order, sc_id, sc_name, sc_order, s_id, s_content, s_order in results:
+            if mc_id not in structure:
+                structure[mc_id] = {
+                    'name': mc_name,
+                    'order': mc_order,
+                    'subcategories': {}
+                }
+            
+            if sc_id and sc_id not in structure[mc_id]['subcategories']:
+                structure[mc_id]['subcategories'][sc_id] = {
+                    'name': sc_name or '',
+                    'order': sc_order,
+                    'sentences': []
+                }
+            
+            if s_id:
+                structure[mc_id]['subcategories'][sc_id]['sentences'].append({
+                    'id': s_id,
+                    'content': s_content,
+                    'order': s_order
+                })
+        
+        return structure
     
-    def copy_sentence(self, sentence_id: int, target_subcategory_id: int):
+    def copy_sentence(self, sentence_id, target_subcategory_id):
         """Copy a sentence to a target subcategory"""
+        # Get the original sentence
         self.cursor.execute("SELECT content FROM sentences WHERE id = ?", (sentence_id,))
         result = self.cursor.fetchone()
         if not result:
@@ -114,10 +123,10 @@ class SentenceMaintenance:
         
         content = result[0]
         
-        # Get the next sort_order for target subcategory
+        # Get the max sort_order in target subcategory
         self.cursor.execute("""
-            SELECT COALESCE(MAX(sort_order), 0) + 1 
-            FROM sentences 
+            SELECT COALESCE(MAX(sort_order), 0) + 1
+            FROM sentences
             WHERE subcategory_id = ?
         """, (target_subcategory_id,))
         sort_order = self.cursor.fetchone()[0]
@@ -127,382 +136,247 @@ class SentenceMaintenance:
             INSERT INTO sentences (subcategory_id, content, sort_order)
             VALUES (?, ?, ?)
         """, (target_subcategory_id, content, sort_order))
+        
         self.conn.commit()
         return True
     
-    def move_sentence(self, sentence_id: int, target_subcategory_id: int):
+    def move_sentence(self, sentence_id, target_subcategory_id):
         """Move a sentence to a target subcategory"""
+        # Get source subcategory
         self.cursor.execute("SELECT subcategory_id FROM sentences WHERE id = ?", (sentence_id,))
         result = self.cursor.fetchone()
         if not result:
             return False
         
-        old_subcategory_id = result[0]
+        source_subcategory_id = result[0]
         
-        # Get the next sort_order for target subcategory
+        # Get the max sort_order in target subcategory
         self.cursor.execute("""
-            SELECT COALESCE(MAX(sort_order), 0) + 1 
-            FROM sentences 
+            SELECT COALESCE(MAX(sort_order), 0) + 1
+            FROM sentences
             WHERE subcategory_id = ?
         """, (target_subcategory_id,))
-        sort_order = self.cursor.fetchone()[0]
+        target_sort_order = self.cursor.fetchone()[0]
         
         # Move the sentence
         self.cursor.execute("""
-            UPDATE sentences 
+            UPDATE sentences
             SET subcategory_id = ?, sort_order = ?
             WHERE id = ?
-        """, (target_subcategory_id, sort_order, sentence_id))
-        self.conn.commit()
+        """, (target_subcategory_id, target_sort_order, sentence_id))
         
-        # Reorder remaining sentences in old subcategory
+        # Reorder sentences in source subcategory
         self.cursor.execute("""
-            UPDATE sentences 
-            SET sort_order = (
-                SELECT COUNT(*) 
-                FROM sentences s2 
-                WHERE s2.subcategory_id = sentences.subcategory_id 
-                AND s2.id <= sentences.id
-            )
+            SELECT id FROM sentences
             WHERE subcategory_id = ?
-        """, (old_subcategory_id,))
-        self.conn.commit()
+            ORDER BY sort_order
+        """, (source_subcategory_id,))
         
+        for idx, (sid,) in enumerate(self.cursor.fetchall(), 1):
+            self.cursor.execute("UPDATE sentences SET sort_order = ? WHERE id = ?", (idx, sid))
+        
+        self.conn.commit()
         return True
 
 
-def clear_screen():
-    """Clear the terminal screen"""
-    os.system('clear' if os.name != 'nt' else 'cls')
+def print_header(title):
+    """Print header bar"""
+    rows, cols = get_terminal_size()
+    print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}" + " "*cols + f"{Colors.RESET}")
+    header_text = f"  {title}"
+    padding = " " * (cols - len(header_text))
+    print(f"{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}{header_text}{padding}{Colors.RESET}")
+    print(f"{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}" + " "*cols + f"{Colors.RESET}")
 
 
-def main_menu():
-    """Display main menu"""
-    maintenance = SentenceMaintenance()
+def print_command_bar(commands):
+    """Print command bar at bottom"""
+    rows, cols = get_terminal_size()
+    print(f"{Colors.BRIGHT_BLACK}" + "─" * cols + f"{Colors.RESET}")
     
-    while True:
-        clear_screen()
-        print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  SENTENCE MAINTENANCE  {Colors.RESET}\n")
-        
-        print(f"{Colors.BRIGHT_YELLOW}1{Colors.RESET}. {Colors.BRIGHT_WHITE}Browse & View Sentences{Colors.RESET}")
-        print(f"{Colors.BRIGHT_YELLOW}2{Colors.RESET}. {Colors.BRIGHT_WHITE}Copy Sentence{Colors.RESET}")
-        print(f"{Colors.BRIGHT_YELLOW}3{Colors.RESET}. {Colors.BRIGHT_WHITE}Move Sentence{Colors.RESET}")
-        print(f"{Colors.BRIGHT_YELLOW}4{Colors.RESET}. {Colors.BRIGHT_WHITE}Exit{Colors.RESET}")
-        
-        choice = input(f"\n{Colors.BRIGHT_GREEN}Enter your choice (1-4):{Colors.RESET} ").strip()
-        
-        if choice == "1":
-            browse_sentences(maintenance)
-        elif choice == "2":
-            copy_sentence_workflow(maintenance)
-        elif choice == "3":
-            move_sentence_workflow(maintenance)
-        elif choice == "4":
-            maintenance.close()
-            break
-        else:
-            print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
+    cmd_parts = []
+    for key, desc in commands:
+        cmd_parts.append(f"{Colors.BRIGHT_YELLOW}{key}{Colors.RESET}:{desc}")
+    
+    cmd_line = "  ".join(cmd_parts)
+    print(f"{Colors.BRIGHT_BLUE}{cmd_line}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_BLACK}" + "─" * cols + f"{Colors.RESET}")
 
 
-def browse_sentences(maintenance):
-    """Browse sentences with expandable tree view"""
-    while True:
-        clear_screen()
-        print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  BROWSE SENTENCES  {Colors.RESET}\n")
-        
-        # Step 1: Select project
-        projects = maintenance.get_all_projects()
-        
-        if not projects:
-            print(f"{Colors.DIM}No projects found.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-            return
-        
-        print(f"{Colors.BRIGHT_WHITE}Select a project:{Colors.RESET}\n")
-        for idx, (proj_id, proj_name) in enumerate(projects, 1):
-            print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {Colors.BRIGHT_WHITE}{proj_name}{Colors.RESET}")
-        
-        print(f"\n  {Colors.BRIGHT_YELLOW}0{Colors.RESET}. {Colors.DIM}Back to main menu{Colors.RESET}")
-        
-        try:
-            choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select project:{Colors.RESET} ").strip())
-            if choice == 0:
-                return
-            if choice < 1 or choice > len(projects):
-                print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-                input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-                continue
-            
-            selected_proj_id, selected_proj_name = projects[choice - 1]
-            browse_project(maintenance, selected_proj_id, selected_proj_name)
-            
-        except ValueError:
-            print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def browse_project(maintenance, project_id, project_name):
-    """Browse headings in a project"""
-    while True:
-        clear_screen()
-        print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  BROWSE: {project_name}  {Colors.RESET}\n")
-        
-        major_cats = maintenance.get_major_categories(project_id)
-        
-        if not major_cats:
-            print(f"{Colors.DIM}No headings found in this project.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-            return
-        
-        print(f"{Colors.BRIGHT_WHITE}Select a heading:{Colors.RESET}\n")
-        for idx, (mc_id, mc_name, mc_order) in enumerate(major_cats, 1):
-            print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {Colors.BRIGHT_BLUE}[{chr(96+idx)}]{Colors.RESET} {Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}")
-        
-        print(f"\n  {Colors.BRIGHT_YELLOW}0{Colors.RESET}. {Colors.DIM}Back to projects{Colors.RESET}")
-        
-        try:
-            choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select heading:{Colors.RESET} ").strip())
-            if choice == 0:
-                return
-            if choice < 1 or choice > len(major_cats):
-                print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-                input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-                continue
-            
-            selected_mc_id, selected_mc_name, _ = major_cats[choice - 1]
-            browse_heading(maintenance, project_id, project_name, selected_mc_id, selected_mc_name)
-            
-        except ValueError:
-            print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def browse_heading(maintenance, project_id, project_name, mc_id, mc_name):
-    """Browse subheadings and sentences in a heading"""
-    while True:
-        clear_screen()
-        print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  {project_name} > {mc_name}  {Colors.RESET}\n")
-        
-        subcats = maintenance.get_subcategories(mc_id)
-        
-        if not subcats:
-            print(f"{Colors.DIM}No subheadings found.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-            return
-        
-        print(f"{Colors.BRIGHT_WHITE}Select a subheading to view sentences:{Colors.RESET}\n")
-        for idx, (sc_id, sc_name, sc_order) in enumerate(subcats, 1):
-            display_name = sc_name if sc_name else f"{Colors.DIM}(Direct to heading){Colors.RESET}"
-            print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {Colors.CYAN}[{idx}]{Colors.RESET} {display_name}")
-        
-        print(f"\n  {Colors.BRIGHT_YELLOW}0{Colors.RESET}. {Colors.DIM}Back to headings{Colors.RESET}")
-        
-        try:
-            choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select subheading:{Colors.RESET} ").strip())
-            if choice == 0:
-                return
-            if choice < 1 or choice > len(subcats):
-                print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-                input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-                continue
-            
-            selected_sc_id, selected_sc_name, _ = subcats[choice - 1]
-            view_sentences(maintenance, project_name, mc_name, selected_sc_name, selected_sc_id)
-            
-        except ValueError:
-            print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-            input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def view_sentences(maintenance, project_name, mc_name, sc_name, sc_id):
-    """View all sentences in a subheading"""
-    clear_screen()
+def display_all_projects(sm, collapsed_projects, page=0, items_per_page=5):
+    """Display all projects with collapsible structure and paging"""
+    projects = sm.get_all_projects()
     
-    location = f"{project_name} > {mc_name}"
-    if sc_name:
-        location += f" > {sc_name}"
-    
-    print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  {location}  {Colors.RESET}\n")
-    
-    sentences = maintenance.get_sentences(sc_id)
-    
-    if not sentences:
-        print(f"{Colors.DIM}No sentences found in this subheading.{Colors.RESET}")
-    else:
-        print(f"{Colors.BRIGHT_WHITE}Sentences:{Colors.RESET}\n")
-        for sent_id, content, sort_order in sentences:
-            print(f"  {Colors.BRIGHT_YELLOW}ID:{sent_id}{Colors.RESET}")
-            print(f"  {Colors.BRIGHT_WHITE}{content}{Colors.RESET}\n")
-    
-    input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def copy_sentence_workflow(maintenance):
-    """Workflow for copying a sentence"""
-    clear_screen()
-    print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  COPY SENTENCE  {Colors.RESET}\n")
-    
-    # Step 1: Select source sentence
-    sentence_id = select_sentence(maintenance, "Select sentence to copy")
-    if not sentence_id:
-        return
-    
-    # Show the sentence
-    sentence_info = maintenance.get_sentence_by_id(sentence_id)
-    if not sentence_info:
-        print(f"\n{Colors.RED}Sentence not found.{Colors.RESET}")
-        input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-        return
-    
-    sent_id, content, subcat_id, major_cat, subcat, proj_id, proj_name, mc_id, sc_id = sentence_info
-    
-    print(f"\n{Colors.GREEN}Selected sentence:{Colors.RESET}")
-    print(f"  {Colors.BRIGHT_WHITE}{content}{Colors.RESET}")
-    print(f"  {Colors.DIM}From: {proj_name} > {major_cat}{' > ' + subcat if subcat else ''}{Colors.RESET}")
-    
-    # Step 2: Select target location
-    target_subcat_id = select_target_location(maintenance, "Copy to")
-    if not target_subcat_id:
-        return
-    
-    # Perform copy
-    if maintenance.copy_sentence(sentence_id, target_subcat_id):
-        print(f"\n{Colors.GREEN}✓{Colors.RESET} Sentence copied successfully!")
-    else:
-        print(f"\n{Colors.RED}Error copying sentence.{Colors.RESET}")
-    
-    input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def move_sentence_workflow(maintenance):
-    """Workflow for moving a sentence"""
-    clear_screen()
-    print(f"\n{Colors.BG_BLUE}{Colors.BRIGHT_WHITE}{Colors.BOLD}  MOVE SENTENCE  {Colors.RESET}\n")
-    
-    # Step 1: Select source sentence
-    sentence_id = select_sentence(maintenance, "Select sentence to move")
-    if not sentence_id:
-        return
-    
-    # Show the sentence
-    sentence_info = maintenance.get_sentence_by_id(sentence_id)
-    if not sentence_info:
-        print(f"\n{Colors.RED}Sentence not found.{Colors.RESET}")
-        input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-        return
-    
-    sent_id, content, subcat_id, major_cat, subcat, proj_id, proj_name, mc_id, sc_id = sentence_info
-    
-    print(f"\n{Colors.GREEN}Selected sentence:{Colors.RESET}")
-    print(f"  {Colors.BRIGHT_WHITE}{content}{Colors.RESET}")
-    print(f"  {Colors.DIM}From: {proj_name} > {major_cat}{' > ' + subcat if subcat else ''}{Colors.RESET}")
-    
-    # Step 2: Select target location
-    target_subcat_id = select_target_location(maintenance, "Move to")
-    if not target_subcat_id:
-        return
-    
-    # Perform move
-    if maintenance.move_sentence(sentence_id, target_subcat_id):
-        print(f"\n{Colors.GREEN}✓{Colors.RESET} Sentence moved successfully!")
-    else:
-        print(f"\n{Colors.RED}Error moving sentence.{Colors.RESET}")
-    
-    input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-
-
-def select_sentence(maintenance, prompt):
-    """Helper to select a sentence by ID"""
-    print(f"\n{Colors.BRIGHT_CYAN}{prompt}{Colors.RESET}")
-    print(f"{Colors.DIM}(Use 'Browse & View Sentences' to see sentence IDs){Colors.RESET}\n")
-    
-    try:
-        sentence_id = int(input(f"{Colors.BRIGHT_GREEN}Enter sentence ID:{Colors.RESET} ").strip())
-        return sentence_id
-    except ValueError:
-        print(f"\n{Colors.RED}Invalid ID.{Colors.RESET}")
-        input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
-        return None
-
-
-def select_target_location(maintenance, prompt):
-    """Helper to select a target project, heading, and subheading"""
-    print(f"\n{Colors.BRIGHT_CYAN}{prompt}{Colors.RESET}\n")
-    
-    # Step 1: Select project
-    projects = maintenance.get_all_projects()
     if not projects:
-        print(f"{Colors.RED}No projects found.{Colors.RESET}")
-        return None
+        print(f"\n{Colors.DIM}(No projects found){Colors.RESET}\n")
+        return {}, 0
     
-    print(f"{Colors.BRIGHT_WHITE}Available projects:{Colors.RESET}")
-    for idx, (proj_id, proj_name) in enumerate(projects, 1):
-        print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {Colors.BRIGHT_WHITE}{proj_name}{Colors.RESET}")
+    # Calculate paging
+    total_items = len(projects)
+    total_pages = (total_items + items_per_page - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, total_items)
     
-    try:
-        choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select project number:{Colors.RESET} ").strip())
-        if choice < 1 or choice > len(projects):
-            print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-            return None
-        target_proj_id = projects[choice - 1][0]
-        target_proj_name = projects[choice - 1][1]
-    except ValueError:
-        print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-        return None
+    page_projects = projects[start_idx:end_idx]
     
-    # Step 2: Select major category (heading)
-    major_cats = maintenance.get_major_categories(target_proj_id)
-    if not major_cats:
-        print(f"\n{Colors.RED}No headings found in project.{Colors.RESET}")
-        return None
+    print(f"\n{Colors.BRIGHT_CYAN}Projects (Page {page + 1}/{total_pages}):{Colors.RESET}\n")
     
-    print(f"\n{Colors.BRIGHT_WHITE}Available headings in '{target_proj_name}':{Colors.RESET}")
-    for idx, (mc_id, mc_name, mc_order) in enumerate(major_cats, 1):
-        print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}")
+    project_map = {}
     
-    try:
-        choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select heading number:{Colors.RESET} ").strip())
-        if choice < 1 or choice > len(major_cats):
-            print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-            return None
-        target_mc_id = major_cats[choice - 1][0]
-        target_mc_name = major_cats[choice - 1][1]
-    except ValueError:
-        print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-        return None
+    for idx, (proj_id, proj_name) in enumerate(page_projects):
+        letter = string.ascii_lowercase[start_idx + idx] if (start_idx + idx) < 26 else f"#{start_idx + idx}"
+        project_map[letter] = proj_id
+        
+        is_collapsed = proj_id in collapsed_projects
+        collapse_indicator = f"{Colors.DIM}[+]{Colors.RESET}" if is_collapsed else f"{Colors.DIM}[-]{Colors.RESET}"
+        
+        print(f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{proj_name}{Colors.RESET}")
+        
+        if not is_collapsed:
+            # Show project structure
+            structure = sm.get_project_structure(proj_id)
+            
+            if not structure:
+                print(f"  {Colors.DIM}(Empty project){Colors.RESET}")
+            else:
+                # Display headings and sentences
+                for mc_id in sorted(structure.keys(), key=lambda x: structure[x]['order']):
+                    mc_data = structure[mc_id]
+                    print(f"  {Colors.CYAN}• {mc_data['name']}{Colors.RESET} {Colors.DIM}(mc_id:{Colors.RESET}{Colors.BRIGHT_YELLOW}{mc_id}{Colors.RESET}{Colors.DIM}){Colors.RESET}")
+                    
+                    for sc_id in sorted(mc_data['subcategories'].keys(), key=lambda x: mc_data['subcategories'][x]['order']):
+                        sc_data = mc_data['subcategories'][sc_id]
+                        
+                        if sc_data['name']:
+                            print(f"    {Colors.BRIGHT_BLACK}→ {sc_data['name']}{Colors.RESET} {Colors.DIM}(sc_id:{Colors.RESET}{Colors.BRIGHT_YELLOW}{sc_id}{Colors.RESET}{Colors.DIM}){Colors.RESET}")
+                        else:
+                            print(f"    {Colors.BRIGHT_BLACK}→ {Colors.DIM}(direct){Colors.RESET} {Colors.DIM}(sc_id:{Colors.RESET}{Colors.BRIGHT_YELLOW}{sc_id}{Colors.RESET}{Colors.DIM}){Colors.RESET}")
+                        
+                        for sentence in sc_data['sentences']:
+                            content_preview = sentence['content'][:50] + "..." if len(sentence['content']) > 50 else sentence['content']
+                            print(f"      {Colors.GREEN}[{sentence['id']}]{Colors.RESET} {Colors.BRIGHT_WHITE}{content_preview}{Colors.RESET}")
+        
+        print()
     
-    # Step 3: Select subcategory (subheading or blank)
-    subcats = maintenance.get_subcategories(target_mc_id)
-    if not subcats:
-        print(f"\n{Colors.RED}No subheadings found. Create one first.{Colors.RESET}")
-        return None
+    return project_map, total_pages
+
+
+def main():
+    """Main sentence maintenance interface"""
+    sm = SentenceMaintenance()
+    collapsed_projects = set()
+    current_page = 0
     
-    print(f"\n{Colors.BRIGHT_WHITE}Available subheadings in '{target_mc_name}':{Colors.RESET}")
-    for idx, (sc_id, sc_name, sc_order) in enumerate(subcats, 1):
-        display_name = sc_name if sc_name else f"{Colors.DIM}(Direct to heading){Colors.RESET}"
-        print(f"  {Colors.BRIGHT_YELLOW}{idx}{Colors.RESET}. {display_name}")
+    while True:
+        clear_screen()
+        print_header("SENTENCE MAINTENANCE")
+        
+        project_map, total_pages = display_all_projects(sm, collapsed_projects, current_page)
+        
+        commands = [
+            ("@x", "toggle"),
+            ("c <id> <sc_id>", "copy"),
+            ("m <id> <sc_id>", "move"),
+            ("h", "prev"),
+            ("l", "next"),
+            ("q", "quit")
+        ]
+        print_command_bar(commands)
+        
+        cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
+        
+        if not cmd:
+            continue
+        
+        command = cmd[0].lower()
+        
+        if command == 'q':
+            break
+        
+        elif command == '@':
+            # Toggle project collapse
+            match = re.match(r'^@([a-zA-Z0-9#]+)$', cmd, re.IGNORECASE)
+            if not match:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Invalid format. Use '@a' to toggle project")
+                import time
+                time.sleep(1)
+                continue
+            
+            letter = match.group(1).lower()
+            
+            if letter not in project_map:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Project [{letter}] not found on this page")
+                import time
+                time.sleep(1)
+                continue
+            
+            proj_id = project_map[letter]
+            
+            if proj_id in collapsed_projects:
+                collapsed_projects.remove(proj_id)
+            else:
+                collapsed_projects.add(proj_id)
+        
+        elif command == 'h':
+            # Previous page
+            if current_page > 0:
+                current_page -= 1
+        
+        elif command == 'l':
+            # Next page
+            if current_page < total_pages - 1:
+                current_page += 1
+        
+        elif command == 'c':
+            # Copy sentence
+            match = re.match(r'^c\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
+            if not match:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Invalid format. Use 'c <sentence_id> <target_sc_id>'")
+                import time
+                time.sleep(2)
+                continue
+            
+            sentence_id = int(match.group(1))
+            target_sc_id = int(match.group(2))
+            
+            if sm.copy_sentence(sentence_id, target_sc_id):
+                print(f"\n{Colors.GREEN}✓{Colors.RESET} Sentence {sentence_id} copied to sc_id:{target_sc_id}")
+            else:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Failed to copy sentence")
+            
+            import time
+            time.sleep(2)
+        
+        elif command == 'm':
+            # Move sentence
+            match = re.match(r'^m\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
+            if not match:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Invalid format. Use 'm <sentence_id> <target_sc_id>'")
+                import time
+                time.sleep(2)
+                continue
+            
+            sentence_id = int(match.group(1))
+            target_sc_id = int(match.group(2))
+            
+            if sm.move_sentence(sentence_id, target_sc_id):
+                print(f"\n{Colors.GREEN}✓{Colors.RESET} Sentence {sentence_id} moved to sc_id:{target_sc_id}")
+            else:
+                print(f"\n{Colors.RED}Error:{Colors.RESET} Failed to move sentence")
+            
+            import time
+            time.sleep(2)
     
-    try:
-        choice = int(input(f"\n{Colors.BRIGHT_GREEN}Select subheading number:{Colors.RESET} ").strip())
-        if choice < 1 or choice > len(subcats):
-            print(f"\n{Colors.RED}Invalid choice.{Colors.RESET}")
-            return None
-        target_sc_id = subcats[choice - 1][0]
-    except ValueError:
-        print(f"\n{Colors.RED}Invalid input.{Colors.RESET}")
-        return None
-    
-    return target_sc_id
+    sm.close()
 
 
 if __name__ == "__main__":
     try:
-        main_menu()
+        main()
     except KeyboardInterrupt:
-        print(f"\n\n{Colors.BRIGHT_YELLOW}Exiting...{Colors.RESET}")
-        sys.exit(0)
+        print(f"\n\n{Colors.YELLOW}Interrupted by user{Colors.RESET}")
     except Exception as e:
-        print(f"\n{Colors.RED}Fatal Error:{Colors.RESET} {str(e)}")
+        print(f"\n\n{Colors.RED}Fatal Error:{Colors.RESET} {e}")
         import traceback
         traceback.print_exc()
-        input(f"\n{Colors.BRIGHT_GREEN}Press Enter to continue...{Colors.RESET}")
+        input("Press Enter to continue...")

@@ -1,4 +1,4 @@
-# Project Outline System - Usage Guide
+# Sentence Editor - Usage Guide
 
 ## Quick Start
 

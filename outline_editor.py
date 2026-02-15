@@ -592,32 +592,58 @@ def main():
         
         print_command_bar(current_major_category_name, current_heading_key, current_subcategory_name, current_subheading_key)
         
-        # Check for F1 key first (non-blocking)
+        # Check for F1 key first
         print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
         first_char = getch()
         
         # F1 key is typically \x1bOP or \x1b[11~
         if first_char == '\x1b':
-            # Read escape sequence
-            second_char = sys.stdin.read(1)
-            if second_char == 'O':
-                third_char = sys.stdin.read(1)
-                if third_char == 'P':  # F1 key
-                    print()  # New line after prompt
-                    show_outline_editor_help()
-                    continue
-            elif second_char == '[':
-                # Could be F1 as \x1b[11~
-                rest = sys.stdin.read(3)
-                if rest == '11~':  # F1 key
-                    print()  # New line after prompt
-                    show_outline_editor_help()
-                    continue
-        
-        # Not F1, so read the rest of the line
-        print(first_char, end='', flush=True)
-        rest_of_line = input()
-        cmd = (first_char + rest_of_line).strip()
+            # Read escape sequence in raw mode
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                second_char = sys.stdin.read(1)
+                if second_char == 'O':
+                    third_char = sys.stdin.read(1)
+                    if third_char == 'P':  # F1 key (\x1bOP)
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                        print()  # New line after prompt
+                        show_outline_editor_help()
+                        continue
+                    else:
+                        # Not F1, restore and continue with input
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                        print('\x1b' + second_char + third_char, end='', flush=True)
+                        rest_of_line = input()
+                        cmd = ('\x1b' + second_char + third_char + rest_of_line).strip()
+                elif second_char == '[':
+                    # Could be F1 as \x1b[11~ or other escape sequence
+                    rest = sys.stdin.read(3)
+                    if rest == '11~':  # F1 key
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                        print()  # New line after prompt
+                        show_outline_editor_help()
+                        continue
+                    else:
+                        # Not F1, restore and continue with input
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                        print('\x1b' + second_char + rest, end='', flush=True)
+                        rest_of_line = input()
+                        cmd = ('\x1b' + second_char + rest + rest_of_line).strip()
+                else:
+                    # Unknown escape sequence
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                    print('\x1b' + second_char, end='', flush=True)
+                    rest_of_line = input()
+                    cmd = ('\x1b' + second_char + rest_of_line).strip()
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        else:
+            # Not an escape sequence, read the rest of the line normally
+            print(first_char, end='', flush=True)
+            rest_of_line = input()
+            cmd = (first_char + rest_of_line).strip()
         
         if not cmd:
             continue

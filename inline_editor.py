@@ -35,6 +35,32 @@ def getch():
     return ch
 
 
+def get_cursor_position():
+    """Get current cursor position (row, col)"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        sys.stdout.write('\033[6n')
+        sys.stdout.flush()
+        
+        # Read response: ESC [ row ; col R
+        response = ''
+        while True:
+            ch = sys.stdin.read(1)
+            response += ch
+            if ch == 'R':
+                break
+        
+        # Parse response
+        if response.startswith('\033[') and response.endswith('R'):
+            coords = response[2:-1].split(';')
+            return int(coords[0]), int(coords[1])
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return 1, 1
+
+
 def edit_line_inline(line_num, current_text):
     """
     Edit a line with vim-style interface
@@ -45,16 +71,20 @@ def edit_line_inline(line_num, current_text):
     cursor_pos = len(text)
     mode = 'normal'
     
-    # Print header once
+    # Print header
     print(f"\n{Colors.BRIGHT_CYAN}Editing line {line_num}{Colors.RESET}")
     print(f"{Colors.BRIGHT_WHITE}Commands: {Colors.BRIGHT_YELLOW}i{Colors.RESET}=insert {Colors.BRIGHT_YELLOW}a{Colors.RESET}=append {Colors.BRIGHT_YELLOW}x{Colors.RESET}=delete {Colors.BRIGHT_YELLOW}d{Colors.RESET}=delete word {Colors.BRIGHT_YELLOW}ESC{Colors.RESET}=save {Colors.BRIGHT_YELLOW}q{Colors.RESET}=cancel{Colors.RESET}")
     print(f"{Colors.BRIGHT_WHITE}Cursor: {Colors.BRIGHT_WHITE}WHITE{Colors.RESET}=normal {Colors.BRIGHT_RED}RED{Colors.RESET}=insert{Colors.RESET}\n")
     
+    # Save the starting cursor position (row, col)
+    start_row, start_col = get_cursor_position()
+    
     def redraw():
-        """Redraw the edit line on the same line"""
-        # Move cursor to beginning of line and clear to end of line
-        sys.stdout.write('\r')
-        sys.stdout.write('\033[K')
+        """Redraw the edit line from the saved position"""
+        # Move cursor back to saved position
+        sys.stdout.write(f'\033[{start_row};{start_col}H')
+        # Clear from cursor to end of screen
+        sys.stdout.write('\033[J')
         
         # Show line number
         sys.stdout.write(f"{Colors.GREEN}[{line_num}]{Colors.RESET} ")

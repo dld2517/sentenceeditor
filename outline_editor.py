@@ -129,7 +129,7 @@ def main():
             ("d <#>", "", "delete"),
             ("@a", "", "toggle"),
             ("p", "", "refresh"),
-            ("F1", "", "help"),
+            ("?", "", "help"),
             ("q", "", "quit")
         ]
         UI.print_command_bar(commands)
@@ -155,14 +155,12 @@ def main():
             match = re.match(r'^@([a-zA-Z])$', cmd, re.IGNORECASE)
             if not match:
                 UI.error("Invalid format. Use '@a' to toggle heading a")
-                input("\nPress Enter to continue...")
                 continue
             
             letter = match.group(1).lower()
             
             if letter not in heading_map:
                 UI.error(f"Heading [{letter}] doesn't exist")
-                input("\nPress Enter to continue...")
                 continue
             
             # Toggle collapse state
@@ -171,14 +169,12 @@ def main():
                 UI.success(f"Heading [{letter}] collapsed")
             else:
                 UI.success(f"Heading [{letter}] expanded")
-            input("\nPress Enter to continue...")
         
         # Heading/subheading commands
         elif command == 'h':
             result = EditorHelpers.parse_heading_command(cmd)
             if not result:
                 UI.error("Invalid format. Use 'ha <name>' for heading or 'ha1 <name>' for subheading")
-                input("\nPress Enter to continue...")
                 continue
             
             letter, number, text = result
@@ -189,7 +185,6 @@ def main():
                 
                 if letter not in heading_map:
                     UI.error(f"Heading [{letter}] doesn't exist. Create it first with 'h{letter} <name>'")
-                    input("\nPress Enter to continue...")
                     continue
                 
                 mc_id, mc_name = heading_map[letter]
@@ -206,7 +201,6 @@ def main():
                             current_subcategory_name = text
                         else:
                             UI.error("Could not rename subheading")
-                        input("\nPress Enter to continue...")
                     else:
                         # Select subheading
                         current_subcategory_id = sc_id
@@ -214,12 +208,10 @@ def main():
                         current_major_category_id = mc_id
                         current_major_category_name = mc_name
                         UI.success(f"Current subheading set to: [{subheading_key}] {sc_name}")
-                        input("\nPress Enter to continue...")
                 else:
                     # Create new subheading
                     if not text:
                         UI.error(f"Subheading name required. Example: h{subheading_key} Your Subheading Name")
-                        input("\nPress Enter to continue...")
                         continue
                     
                     existing_subs = [k for k in subheading_map.keys() if k.startswith(letter)]
@@ -227,7 +219,6 @@ def main():
                     
                     if int(number) != expected_num:
                         UI.error(f"Next subheading should be '{letter}{expected_num}'. Use 'h{letter}{expected_num} <name>' to create it.")
-                        input("\nPress Enter to continue...")
                         continue
                     
                     sc_id = db.create_subcategory(mc_id, text)
@@ -239,7 +230,6 @@ def main():
                         UI.success(f"Subheading [{subheading_key}] created: {text}")
                     else:
                         UI.error("Could not create subheading")
-                    input("\nPress Enter to continue...")
             else:
                 # Heading command
                 if letter in heading_map:
@@ -256,7 +246,6 @@ def main():
                             UI.success(f"Heading [{letter}] renamed to: {text}")
                         else:
                             UI.error("Could not rename heading (name may already exist)")
-                        input("\nPress Enter to continue...")
                     else:
                         # Select heading
                         current_major_category_id = mc_id
@@ -265,12 +254,10 @@ def main():
                         current_subcategory_name = None
                         UI.success(f"Selected heading [{letter}] {mc_name}")
                         print(f"{Colors.DIM}Use '+' to add sentence, or 'h{letter}1 <name>' to create subheading{Colors.RESET}")
-                        input("\nPress Enter to continue...")
                 else:
                     # Create new heading
                     if not text:
                         UI.error(f"Heading [{letter}] doesn't exist. Use 'h{letter} <name>' to create it.")
-                        input("\nPress Enter to continue...")
                         continue
                     
                     # Check sequence
@@ -278,7 +265,6 @@ def main():
                     
                     if letter != expected_letter:
                         UI.error(f"Next heading should be '{expected_letter}'. Use 'h{expected_letter} <name>' to create it.")
-                        input("\nPress Enter to continue...")
                         continue
                     
                     # Create heading
@@ -292,13 +278,11 @@ def main():
                         print(f"{Colors.DIM}Use '+' to add sentence, or 'h{letter}1 <name>' to create subheading{Colors.RESET}")
                     else:
                         UI.error("Could not create heading (name may already exist)")
-                    input("\nPress Enter to continue...")
         
         # Add sentence
         elif command == '+':
             if len(cmd) < 2 or not cmd[1:].strip():
                 UI.error("Sentence text required. Example: + This is my sentence")
-                input("\nPress Enter to continue...")
                 continue
             
             sentence_text = cmd[1:].strip()
@@ -323,21 +307,17 @@ def main():
                         UI.success("Sentence added to topic")
                     else:
                         UI.error("Could not create subcategory")
-                    input("\nPress Enter to continue...")
                 else:
                     UI.error("Select a heading first (e.g., 'ha' or 'ha Topic Name')")
-                    input("\nPress Enter to continue...")
             else:
                 db.add_sentence(current_subcategory_id, sentence_text)
                 UI.success("Sentence added")
-                input("\nPress Enter to continue...")
         
         # Insert sentence
         elif command == 'i':
             parts = cmd[1:].strip().split(None, 1)
             if len(parts) < 2:
                 UI.error("Usage: i <line#> <text>. Example: i 3 New sentence")
-                input("\nPress Enter to continue...")
                 continue
             
             try:
@@ -349,10 +329,8 @@ def main():
                     UI.success(f"Sentence inserted before line {line_num}")
                 else:
                     UI.error(f"Line {line_num} does not exist")
-                input("\nPress Enter to continue...")
             except ValueError:
                 UI.error("Invalid line number. Example: i 3 New sentence")
-                input("\nPress Enter to continue...")
         
         # Edit sentence
         elif command == 'e':
@@ -371,10 +349,8 @@ def main():
                         db.update_sentence(sentence_id, new_text)
                 else:
                     UI.error(f"Line {line_num} does not exist")
-                    input("\nPress Enter to continue...")
             except ValueError:
                 UI.error("Invalid line number. Example: e 3")
-                input("\nPress Enter to continue...")
         
         # Delete sentence
         elif command == 'd':
@@ -388,10 +364,8 @@ def main():
                     UI.success(f"Line {line_num} deleted")
                 else:
                     UI.error(f"Line {line_num} does not exist")
-                input("\nPress Enter to continue...")
             except ValueError:
                 UI.error("Invalid line number")
-                input("\nPress Enter to continue...")
         
         # Refresh
         elif command == 'p':
@@ -399,7 +373,6 @@ def main():
         
         else:
             UI.error(f"Unknown command: {command}")
-            input("\nPress Enter to continue...")
     
     db.close()
     print(f"\n{Colors.BRIGHT_CYAN}Goodbye!{Colors.RESET}\n")
@@ -419,4 +392,3 @@ if __name__ == "__main__":
         UI.error(str(e))
         import traceback
         traceback.print_exc()
-        input("\nPress Enter to continue...")

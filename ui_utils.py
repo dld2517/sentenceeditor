@@ -121,34 +121,17 @@ class Input:
     @staticmethod
     def read_command_with_f1(prompt="> "):
         """
-        Read a command with F1 key detection
-        Returns: (command_string, is_f1_pressed)
+        Read a command with help detection (? or help)
+        Uses regular input() for full line editing with backspace
+        Returns: (command_string, is_help_requested)
         """
-        print(f"{Colors.BRIGHT_GREEN}{prompt}{Colors.RESET}", end='', flush=True)
-        ch = Input.getch()
+        cmd = input(f"{Colors.BRIGHT_GREEN}{prompt}{Colors.RESET}").strip()
         
-        # Check if it's escape sequence (F1 starts with ESC)
-        if ch == '\x1b':
-            # Read next characters
-            ch2 = Input.getch()
-            ch3 = Input.getch()
-            
-            full_seq = ch + ch2 + ch3
-            
-            # Check for F1 (ESC O P)
-            if full_seq == '\x1bOP':
-                print()  # New line after prompt
-                return '', True
-            else:
-                # Not F1, treat as regular input
-                print(full_seq, end='', flush=True)
-                rest_of_line = input()
-                return (full_seq + rest_of_line).strip(), False
-        else:
-            # Regular character, read the rest of the line
-            print(ch, end='', flush=True)
-            rest_of_line = input()
-            return (ch + rest_of_line).strip(), False
+        # Check if user wants help
+        if cmd.lower() in ['?', 'help']:
+            return '', True
+        
+        return cmd, False
 
 
 class UI:

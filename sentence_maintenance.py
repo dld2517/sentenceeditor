@@ -112,7 +112,7 @@ def main():
             ("msh <sc_id> <mc_id>", "move subh"),
             ("h", "prev"),
             ("l", "next"),
-            ("F1", "help"),
+            ("?", "help"),
             ("q", "quit")
         ]
         UI.print_command_bar(commands)

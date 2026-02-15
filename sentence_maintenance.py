@@ -39,7 +39,7 @@ def display_all_projects(db, collapsed_projects, page=0, items_per_page=5):
         is_collapsed = proj_id in collapsed_projects
         collapse_indicator = f"{Colors.DIM}[+]{Colors.RESET}" if is_collapsed else f"{Colors.DIM}[-]{Colors.RESET}"
         
-        print(f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{proj_name}{Colors.RESET}")
+        print(f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{proj_name}{Colors.RESET} {Colors.DIM}(proj_id:{Colors.RESET}{Colors.BRIGHT_YELLOW}{proj_id}{Colors.RESET}{Colors.DIM}){Colors.RESET}")
         
         if not is_collapsed:
             # Show project structure

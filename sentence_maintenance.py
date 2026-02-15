@@ -8,6 +8,7 @@ import sqlite3
 import os
 import re
 import string
+from help import show_sentence_maintenance_help
 
 
 class Colors:
@@ -279,6 +280,7 @@ def main():
             ("m <id> <sc_id>", "move"),
             ("h", "prev"),
             ("l", "next"),
+            ("F1", "help"),
             ("q", "quit")
         ]
         print_command_bar(commands)
@@ -286,6 +288,11 @@ def main():
         cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
         
         if not cmd:
+            continue
+        
+        # Check for F1 help key (escape sequence: \x1bOP)
+        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
+            show_sentence_maintenance_help()
             continue
         
         command = cmd[0].lower()

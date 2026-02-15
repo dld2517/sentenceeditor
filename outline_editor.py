@@ -10,6 +10,7 @@ import string
 import re
 from project_state import get_active_project, set_active_project
 from inline_editor import edit_line_inline
+from help import show_outline_editor_help
 
 # ANSI Color codes
 class Colors:
@@ -341,6 +342,7 @@ def print_command_bar(current_heading_name=None, heading_key=None, current_subhe
         ("d", " <#>", "delete"),
         ("@", "a", "toggle"),
         ("p", "", "refresh"),
+        ("F1", "", "help"),
         ("q", "", "quit")
     ]
     
@@ -569,6 +571,11 @@ def main():
         cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
         
         if not cmd:
+            continue
+        
+        # Check for F1 help key (escape sequence: \x1bOP)
+        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
+            show_outline_editor_help()
             continue
         
         command = cmd[0].lower()

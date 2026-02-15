@@ -137,7 +137,7 @@ def export_to_text(project_name, content, output_file):
 
 
 def export_to_docx(project_name, content, output_file):
-    """Export project to Word document"""
+    """Export project to Word document - plain double-spaced text with headings"""
     try:
         from docx import Document
         from docx.shared import Pt
@@ -151,34 +151,24 @@ def export_to_docx(project_name, content, output_file):
     
     doc = Document()
     
-    # Set default font and spacing for the document (APA 7 format)
+    # Set default font and spacing for the document
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    # Set double spacing for Normal style
+    # Set double spacing
     paragraph_format = style.paragraph_format
     paragraph_format.line_spacing = 2.0
     paragraph_format.space_after = Pt(0)
     
-    # Add title (APA 7 format)
-    title = doc.add_heading(project_name, 0)
-    title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    title.paragraph_format.line_spacing = 2.0
-    title.paragraph_format.space_after = Pt(0)
-    for run in title.runs:
-        run.font.name = 'Times New Roman'
-        run.font.size = Pt(12)
-        run.font.bold = True
-    
-    # Add content
+    # Add content with headings
     for mc_id in sorted(content.keys(), key=lambda x: content[x]['order']):
         mc_data = content[mc_id]
         
-        # Add major category heading (APA 7 Level 1)
+        # Add major category heading (left-justified)
         heading1 = doc.add_heading(mc_data['name'], level=1)
-        heading1.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        heading1.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
         heading1.paragraph_format.line_spacing = 2.0
         heading1.paragraph_format.space_after = Pt(0)
         for run in heading1.runs:
@@ -189,7 +179,7 @@ def export_to_docx(project_name, content, output_file):
         for sc_id in sorted(mc_data['subcategories'].keys(), key=lambda x: mc_data['subcategories'][x]['order']):
             sc_data = mc_data['subcategories'][sc_id]
             
-            # Add subcategory heading if it has a name (APA 7 Level 2)
+            # Add subcategory heading if it has a name (left-justified)
             if sc_data['name']:
                 heading2 = doc.add_heading(sc_data['name'], level=2)
                 heading2.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
@@ -200,12 +190,11 @@ def export_to_docx(project_name, content, output_file):
                     run.font.size = Pt(12)
                     run.font.bold = True
             
-            # Add sentences (APA 7 double-spaced)
+            # Add sentences
             for sentence in sc_data['sentences']:
                 p = doc.add_paragraph(sentence)
                 p.paragraph_format.line_spacing = 2.0
                 p.paragraph_format.space_after = Pt(0)
-                p.paragraph_format.first_line_indent = Pt(36)  # 0.5 inch indent
                 for run in p.runs:
                     run.font.name = 'Times New Roman'
                     run.font.size = Pt(12)

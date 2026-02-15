@@ -1,125 +1,242 @@
-# Sentence Editor - Usage Guide
+# Outline Management System
+
+A Python-based hierarchical outline and project management application with a modern terminal UI. Create structured documents with headings, subheadings, and sentences, then export to text or APA7-formatted Word documents.
+
+## Features
+
+- **Hierarchical Structure**: Organize content into headings → subheadings → sentences
+- **Vim-Style Editing**: Inline editor with familiar vim commands for natural text editing
+- **Collapsible Sections**: Use @a, @b toggles to collapse/expand headings for better focus
+- **Modern Terminal UI**: Color-coded interface with blue headers, bright yellow commands, cyan highlights
+- **Multiple Projects**: Manage multiple independent projects in a single database
+- **Sentence Management**: Copy and move sentences between projects with tree view navigation
+- **Export Options**: Export to plain text or APA7-formatted Word documents (.docx)
+- **Comprehensive Help**: Press F1 key for context-sensitive help with dynamic paging
+- **Smart Navigation**: Single-key commands and paging (h/l) for efficient workflow
+
+## Installation
+
+### Requirements
+
+- Python 3.7 or higher
+- Terminal with ANSI color support
+- Unix-like environment (Linux, macOS, WSL on Windows)
+
+### Setup
+
+1. Extract all files to a directory
+2. Install dependencies:
+
+```bash
+pip3 install -r requirements.txt
+```
+
+Or install manually:
+
+```bash
+pip3 install python-docx
+```
+
+3. Make the main script executable (optional):
+
+```bash
+chmod +x main.py
+```
 
 ## Quick Start
+
+Run the application:
 
 ```bash
 python3 main.py
 ```
 
-## System Overview
+From the main menu, you can:
+- **1**: Open Outline Editor (create and edit content)
+- **2**: Manage Projects (view, switch, or delete projects)
+- **3**: Sentence Maintenance (copy/move sentences between projects)
+- **4**: Export to Text (plain text format)
+- **5**: Export to Word (APA7-formatted .docx)
+- **Q**: Quit
 
-The Project Outline System consists of four integrated modules that share a common database and active project state.
+## Using the Outline Editor
 
-### Main Launcher (`main.py`)
+### Creating Structure
 
-The central hub displays the active project and provides access to all tools. When you select a project in the Project Manager, it becomes the active project for the Outline Editor.
+Create headings in sequence:
+```
+> ha Introduction
+> hb Methods
+> hc Results
+```
 
-### Outline Editor (`outline_editor.py`)
+Create subheadings under a heading:
+```
+> ha1 Background
+> ha2 Purpose
+```
 
-Modern word-processor interface with commands at the bottom of the screen.
+### Adding Content
 
-**Workflow:**
-1. Launch from main menu or run directly
-2. Select or create a project (uses active project if set)
-3. Build your outline using commands
+Select a heading or subheading, then add sentences:
+```
+> ha              (select heading A)
+> + This is a sentence directly under the heading.
+> ha1             (select subheading A1)
+> + This is a sentence under subheading A1.
+```
 
-**Commands:**
-- `ha <name>` - Create/edit heading A
-- `ha1 <name>` - Create/edit subheading A1 under heading A
-- `+ <text>` - Add sentence to current subheading
-- `e 3 New text` - Edit line 3
-- `d 5` - Delete line 5
+### Editing Commands
+
+- `+ <text>` - Add new sentence
+- `i <#> <text>` - Insert sentence before line number
+- `e <#>` - Edit sentence (opens vim-style editor)
+- `d <#>` - Delete sentence
+- `@a`, `@b` - Toggle collapse/expand headings
 - `p` - Refresh display
+- `F1` - Show help (press the F1 key)
+- `q` - Quit to main menu
+
+### Vim-Style Inline Editor
+
+When editing a sentence with `e <#>`:
+
+**Normal Mode** (white cursor):
+- `i` - Insert at cursor
+- `a` - Append after cursor
+- `A` - Append at end of line
+- `I` - Insert at beginning
+- `h`/`l` - Move cursor left/right
+- `0`/`$` - Jump to start/end
+- `x` - Delete character
+- `d` - Delete word
+- `ESC` or `Enter` - Save and exit
+- `q` - Cancel without saving
+
+**Insert Mode** (red cursor):
+- Type normally to insert text
+- `Backspace` - Delete previous character
+- `ESC` - Return to normal mode
+- `Enter` - Save and exit
+
+## Sentence Maintenance
+
+View all projects and sentences in a collapsible tree structure. Copy or move sentences between any locations:
+
+- `@a`, `@b` - Toggle project collapse/expand
+- `h`/`l` - Navigate pages (5 projects per page)
+- `c <sentence_id> <target_sc_id>` - Copy sentence
+- `m <sentence_id> <target_sc_id>` - Move sentence
+- `F1` - Show help
 - `q` - Quit
 
-**Color Scheme:**
-- Blue header bar - Project name
-- Bright cyan - Section titles
-- Bright blue - Major headings [a], [b]
-- Cyan - Subheadings [a1], [a2]
-- Green - Line numbers
-- Bright white - Content text
-- Bright yellow - Command keys
-- Red - Errors
+IDs are displayed in bright yellow when projects are expanded:
+- `mc_id` - Major category (heading) ID
+- `sc_id` - Subcategory (subheading) ID
+- `[###]` - Sentence ID (in green brackets)
 
-### Project Manager (`project_outline_manager.py`)
+## Export Formats
 
-Traditional menu interface for project management.
+### Plain Text Export
 
-**Features:**
-- Create new projects
-- Select project (sets as active for Editor)
-- List all projects
-- Delete projects
+Exports the outline structure as plain text with hierarchical indentation.
 
-**Integration:**
-When you select a project here, it automatically becomes the active project. The next time you open the Outline Editor, it will use this project.
+### APA7 Word Export
 
-### Export Tool (`export_to_text.py`)
-
-Export any project to a plain text file.
-
-**Output Format:**
-```
-PROJECT: Your Project Name
-================================================================================
-
-Before Class Reflection
------------------------
-Introduction. First sentence here
-
-Main Points. Another sentence here
-
-
-After Class Reflection
-----------------------
-Summary. Final thoughts here
-```
-
-## Typical Workflow
-
-1. **First Time Setup**
-   ```bash
-   python3 main.py
-   # Select option 2 (Project Manager)
-   # Create a new project
-   # It will ask if you want to set it as active - say yes
-   ```
-
-2. **Daily Writing**
-   ```bash
-   python3 main.py
-   # Select option 1 (Outline Editor)
-   # Your active project loads automatically
-   # Start writing with commands
-   ```
-
-3. **Switch Projects**
-   ```bash
-   python3 main.py
-   # Select option 2 (Project Manager)
-   # Select a different project
-   # Return to Outline Editor - new project is now active
-   ```
-
-4. **Export Work**
-   ```bash
-   python3 main.py
-   # Select option 3 (Export to Text)
-   # Choose project and filename
-   ```
+Creates a professionally formatted Word document with:
+- Times New Roman 12pt font
+- Double-spacing throughout
+- Left-justified paragraphs
+- Plain formatting (no bold/italic headings)
+- Proper paragraph spacing
 
 ## Database
 
-All data is stored in `project_outlines.db` (SQLite).
+All data is stored in `project_outlines.db` (SQLite3). The database structure:
 
-**Active Project State:**
-Stored in `.project_state.json` - tracks which project is currently active.
+- **projects** - Top-level projects
+- **major_categories** - Headings within projects
+- **subcategories** - Subheadings within headings
+- **sentences** - Content items within subcategories
 
-## Tips
+The database file is automatically excluded from git via `.gitignore`.
 
-- No need to press Enter twice - commands execute immediately
-- Standard text uses bright white for better readability
-- All tools share the same database
-- Active project persists between sessions
-- You can run tools directly without the main launcher
+## File Structure
+
+```
+outline_manager/
+├── main.py                      # Main launcher
+├── outline_editor.py            # Outline editing module
+├── project_outline_manager.py   # Project management module
+├── sentence_maintenance.py      # Sentence copy/move module
+├── export_to_text.py           # Export functionality
+├── inline_editor.py            # Vim-style inline editor
+├── help.py                     # Help system with F1 support
+├── project_state.py            # Shared state management
+├── requirements.txt            # Python dependencies
+├── .gitignore                  # Git ignore rules
+└── README.md                   # This file
+```
+
+## Tips and Best Practices
+
+1. **Start with Structure**: Create all your headings first, then fill in content
+2. **Use Collapse**: Collapse sections you're not working on to reduce visual clutter
+3. **Direct Sentences**: Headings can have both direct sentences and named subheadings
+4. **Case Sensitivity**: Heading and subheading names are case-sensitive
+5. **Line Numbers**: Line numbers in the editor are sequential across the entire document
+6. **F1 Help**: Press F1 anytime for context-sensitive help with dynamic paging
+7. **Single Keys**: In help screens, use h/l/q without pressing Enter
+
+## Keyboard Shortcuts Summary
+
+### Outline Editor
+- `F1` - Help
+- `ha <name>` - Create/rename heading A
+- `ha1 <name>` - Create/rename subheading A1
+- `+ <text>` - Add sentence
+- `e <#>` - Edit sentence
+- `@a` - Toggle collapse heading A
+- `q` - Quit
+
+### Sentence Maintenance
+- `F1` - Help
+- `@a` - Toggle project A
+- `h`/`l` - Previous/next page
+- `c <id> <id>` - Copy sentence
+- `m <id> <id>` - Move sentence
+- `q` - Quit
+
+### Help System
+- `h` - Previous page (no Enter)
+- `l` - Next page (no Enter)
+- `q` - Quit help (no Enter)
+
+## Troubleshooting
+
+**Colors not displaying**: Ensure your terminal supports ANSI colors. Most modern terminals do.
+
+**F1 key not working**: Some terminal emulators map F1 differently. The system detects both `\x1bOP` and `\x1b[11~` sequences.
+
+**Database locked**: Only one instance should access the database at a time. Close other instances.
+
+**Terminal size detection**: The help system automatically detects terminal size. If it fails, it defaults to 24x80.
+
+## Git Integration
+
+The included `.gitignore` excludes:
+- `*.db` - Database files
+- `*.db-journal` - SQLite journal files
+- `.project_state.json` - Active project state
+- `__pycache__/` - Python cache
+- `*.pyc` - Compiled Python files
+
+This allows you to version control your code while keeping project data local.
+
+## License
+
+This is free and unencumbered software released into the public domain.
+
+## Version
+
+Version 2.0 - Updated with dynamic help system, F1 key support, and adaptive terminal sizing.

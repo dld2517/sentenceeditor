@@ -8,6 +8,9 @@ import sqlite3
 import os
 import re
 import string
+import sys
+import tty
+import termios
 from help import show_sentence_maintenance_help
 
 
@@ -50,6 +53,18 @@ def get_terminal_size():
 def clear_screen():
     """Clear the terminal screen"""
     os.system('clear' if os.name != 'nt' else 'cls')
+
+
+def getch():
+    """Get a single character from stdin"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 class SentenceMaintenance:
@@ -285,14 +300,35 @@ def main():
         ]
         print_command_bar(commands)
         
-        cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
+        # Check for F1 key first
+        print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
+        ch = getch()
+        
+        # Check if it's escape sequence (F1 starts with ESC)
+        if ch == '\x1b':
+            # Read next characters
+            ch2 = getch()
+            ch3 = getch()
+            
+            full_seq = ch + ch2 + ch3
+            
+            # Check for F1 (ESC O P)
+            if full_seq == '\x1bOP':
+                print()  # New line after prompt
+                show_sentence_maintenance_help()
+                continue
+            else:
+                # Not F1, treat as regular input
+                print(full_seq, end='', flush=True)
+                rest_of_line = input()
+                cmd = (full_seq + rest_of_line).strip()
+        else:
+            # Regular character, read the rest of the line
+            print(ch, end='', flush=True)
+            rest_of_line = input()
+            cmd = (ch + rest_of_line).strip()
         
         if not cmd:
-            continue
-        
-        # Check for F1 help key (escape sequence: \x1bOP)
-        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
-            show_sentence_maintenance_help()
             continue
         
         command = cmd[0].lower()

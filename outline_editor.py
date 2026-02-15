@@ -8,6 +8,8 @@ import os
 import sys
 import string
 import re
+import tty
+import termios
 from project_state import get_active_project, set_active_project
 from inline_editor import edit_line_inline
 from help import show_outline_editor_help
@@ -329,6 +331,18 @@ def get_terminal_size():
         return 24, 80
 
 
+def getch():
+    """Get a single character from stdin"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
 def print_command_bar(current_heading_name=None, heading_key=None, current_subheading_name=None, subheading_key=None):
     """Print command bar at bottom of screen"""
     rows, cols = get_terminal_size()
@@ -568,14 +582,35 @@ def main():
         
         print_command_bar(current_major_category_name, current_heading_key, current_subcategory_name, current_subheading_key)
         
-        cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
+        # Check for F1 key first
+        print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
+        ch = getch()
+        
+        # Check if it's escape sequence (F1 starts with ESC)
+        if ch == '\x1b':
+            # Read next characters
+            ch2 = getch()
+            ch3 = getch()
+            
+            full_seq = ch + ch2 + ch3
+            
+            # Check for F1 (ESC O P)
+            if full_seq == '\x1bOP':
+                print()  # New line after prompt
+                show_outline_editor_help()
+                continue
+            else:
+                # Not F1, treat as regular input
+                print(full_seq, end='', flush=True)
+                rest_of_line = input()
+                cmd = (full_seq + rest_of_line).strip()
+        else:
+            # Regular character, read the rest of the line
+            print(ch, end='', flush=True)
+            rest_of_line = input()
+            cmd = (ch + rest_of_line).strip()
         
         if not cmd:
-            continue
-        
-        # Check for F1 help key (escape sequence: \x1bOP)
-        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
-            show_outline_editor_help()
             continue
         
         command = cmd[0].lower()

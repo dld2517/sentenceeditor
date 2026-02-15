@@ -107,9 +107,9 @@ def main():
         commands = [
             ("@x", "toggle"),
             ("cs <s_id> <sc_id>", "copy sent"),
-            ("ms <s_id> <sc_id>", "move sent"),
-            ("mh <mc_id> <proj_id>", "move head"),
-            ("msh <sc_id> <mc_id>", "move subh"),
+            ("ch <mc_id> <before_mc_id>", "copy head"),
+            ("cp <mc_id> <proj_id>", "copy to proj"),
+            ("dh <mc_id>", "delete head"),
             ("h", "prev"),
             ("l", "next"),
             ("?", "help"),
@@ -182,59 +182,57 @@ def main():
             
             time.sleep(2)
         
-        elif cmd.startswith('ms '):
-            # Move sentence
-            match = re.match(r'^ms\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
+        elif cmd.startswith('ch '):
+            # Copy heading within same project (insert before another heading)
+            match = re.match(r'^ch\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
             if not match:
-                UI.error("Invalid format. Use 'ms <sentence_id> <target_sc_id>'")
+                UI.error("Invalid format. Use 'ch <mc_id> <before_mc_id>'")
                 time.sleep(2)
                 continue
             
-            sentence_id = int(match.group(1))
-            target_sc_id = int(match.group(2))
+            mc_id = int(match.group(1))
+            before_mc_id = int(match.group(2))
             
-            if db.move_sentence(sentence_id, target_sc_id):
-                UI.success(f"Sentence {sentence_id} moved to sc_id:{target_sc_id}")
+            if db.copy_major_category_before(mc_id, before_mc_id):
+                UI.success(f"Heading mc_id:{mc_id} copied before mc_id:{before_mc_id}")
             else:
-                UI.error("Failed to move sentence")
+                UI.error("Failed to copy heading")
             
             time.sleep(2)
         
-        elif cmd.startswith('mh '):
-            # Move heading (major category)
-            match = re.match(r'^mh\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
+        elif cmd.startswith('cp '):
+            # Copy heading to another project
+            match = re.match(r'^cp\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
             if not match:
-                UI.error("Invalid format. Use 'mh <mc_id> <target_project_id>'")
+                UI.error("Invalid format. Use 'cp <mc_id> <target_project_id>'")
                 time.sleep(2)
                 continue
             
             mc_id = int(match.group(1))
             target_proj_id = int(match.group(2))
             
-            # Move to end of target project
-            if db.move_major_category(mc_id, target_proj_id, 999):
-                UI.success(f"Heading mc_id:{mc_id} moved to project {target_proj_id}")
+            # Copy to end of target project
+            if db.copy_major_category(mc_id, target_proj_id, 999):
+                UI.success(f"Heading mc_id:{mc_id} copied to project {target_proj_id}")
             else:
-                UI.error("Failed to move heading")
+                UI.error("Failed to copy heading")
             
             time.sleep(2)
         
-        elif cmd.startswith('msh '):
-            # Move subheading (subcategory)
-            match = re.match(r'^msh\s+(\d+)\s+(\d+)$', cmd, re.IGNORECASE)
+        elif cmd.startswith('dh '):
+            # Delete heading
+            match = re.match(r'^dh\s+(\d+)$', cmd, re.IGNORECASE)
             if not match:
-                UI.error("Invalid format. Use 'msh <sc_id> <target_mc_id>'")
+                UI.error("Invalid format. Use 'dh <mc_id>'")
                 time.sleep(2)
                 continue
             
-            sc_id = int(match.group(1))
-            target_mc_id = int(match.group(2))
+            mc_id = int(match.group(1))
             
-            # Move to end of target heading
-            if db.move_subcategory(sc_id, target_mc_id, 999):
-                UI.success(f"Subheading sc_id:{sc_id} moved to heading mc_id:{target_mc_id}")
+            if db.delete_major_category(mc_id):
+                UI.success(f"Heading mc_id:{mc_id} deleted")
             else:
-                UI.error("Failed to move subheading")
+                UI.error("Failed to delete heading")
             
             time.sleep(2)
         

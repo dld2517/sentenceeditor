@@ -218,6 +218,162 @@ class Database:
         self.conn.commit()
         return True
     
+    def copy_major_category(self, major_category_id, target_project_id, target_sort_order):
+        """Copy a major category (with all subcategories and sentences) to another project"""
+        # Get source category info
+        self.cursor.execute(
+            "SELECT name, project_id FROM major_categories WHERE id = ?",
+            (major_category_id,)
+        )
+        result = self.cursor.fetchone()
+        if not result:
+            return False
+        
+        mc_name, source_project_id = result
+        
+        # Get max sort_order in target project
+        self.cursor.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) FROM major_categories WHERE project_id = ?",
+            (target_project_id,)
+        )
+        new_sort_order = self.cursor.fetchone()[0] + 1
+        
+        # Create new major category
+        self.cursor.execute(
+            "INSERT INTO major_categories (project_id, name, sort_order) VALUES (?, ?, ?)",
+            (target_project_id, mc_name, new_sort_order)
+        )
+        new_mc_id = self.cursor.lastrowid
+        
+        # Copy all subcategories
+        self.cursor.execute(
+            "SELECT id, name, sort_order FROM subcategories WHERE major_category_id = ? ORDER BY sort_order",
+            (major_category_id,)
+        )
+        subcategories = self.cursor.fetchall()
+        
+        for sc_id, sc_name, sc_order in subcategories:
+            # Create new subcategory
+            self.cursor.execute(
+                "INSERT INTO subcategories (major_category_id, name, sort_order) VALUES (?, ?, ?)",
+                (new_mc_id, sc_name, sc_order)
+            )
+            new_sc_id = self.cursor.lastrowid
+            
+            # Copy all sentences
+            self.cursor.execute(
+                "SELECT content, sort_order FROM sentences WHERE subcategory_id = ? ORDER BY sort_order",
+                (sc_id,)
+            )
+            sentences = self.cursor.fetchall()
+            
+            for content, s_order in sentences:
+                self.cursor.execute(
+                    "INSERT INTO sentences (subcategory_id, content, sort_order) VALUES (?, ?, ?)",
+                    (new_sc_id, content, s_order)
+                )
+        
+        self.conn.commit()
+        return True
+    
+    def copy_major_category_before(self, major_category_id, before_mc_id):
+        """Copy a major category before another heading in the same project"""
+        # Get source category info
+        self.cursor.execute(
+            "SELECT name, project_id FROM major_categories WHERE id = ?",
+            (major_category_id,)
+        )
+        result = self.cursor.fetchone()
+        if not result:
+            return False
+        
+        mc_name, source_project_id = result
+        
+        # Get target position
+        self.cursor.execute(
+            "SELECT sort_order, project_id FROM major_categories WHERE id = ?",
+            (before_mc_id,)
+        )
+        target_result = self.cursor.fetchone()
+        if not target_result:
+            return False
+        
+        target_sort_order, target_project_id = target_result
+        
+        # Must be in same project
+        if source_project_id != target_project_id:
+            return False
+        
+        # Shift existing categories down
+        self.cursor.execute(
+            "UPDATE major_categories SET sort_order = sort_order + 1 WHERE project_id = ? AND sort_order >= ?",
+            (target_project_id, target_sort_order)
+        )
+        
+        # Create new major category at target position
+        self.cursor.execute(
+            "INSERT INTO major_categories (project_id, name, sort_order) VALUES (?, ?, ?)",
+            (target_project_id, mc_name, target_sort_order)
+        )
+        new_mc_id = self.cursor.lastrowid
+        
+        # Copy all subcategories and sentences (same as copy_major_category)
+        self.cursor.execute(
+            "SELECT id, name, sort_order FROM subcategories WHERE major_category_id = ? ORDER BY sort_order",
+            (major_category_id,)
+        )
+        subcategories = self.cursor.fetchall()
+        
+        for sc_id, sc_name, sc_order in subcategories:
+            self.cursor.execute(
+                "INSERT INTO subcategories (major_category_id, name, sort_order) VALUES (?, ?, ?)",
+                (new_mc_id, sc_name, sc_order)
+            )
+            new_sc_id = self.cursor.lastrowid
+            
+            self.cursor.execute(
+                "SELECT content, sort_order FROM sentences WHERE subcategory_id = ? ORDER BY sort_order",
+                (sc_id,)
+            )
+            sentences = self.cursor.fetchall()
+            
+            for content, s_order in sentences:
+                self.cursor.execute(
+                    "INSERT INTO sentences (subcategory_id, content, sort_order) VALUES (?, ?, ?)",
+                    (new_sc_id, content, s_order)
+                )
+        
+        self.conn.commit()
+        return True
+    
+    def delete_major_category(self, major_category_id):
+        """Delete a major category and all its subcategories and sentences"""
+        # Get project_id and sort_order for reordering
+        self.cursor.execute(
+            "SELECT project_id, sort_order FROM major_categories WHERE id = ?",
+            (major_category_id,)
+        )
+        result = self.cursor.fetchone()
+        if not result:
+            return False
+        
+        project_id, sort_order = result
+        
+        # Delete the category (CASCADE will delete subcategories and sentences)
+        self.cursor.execute(
+            "DELETE FROM major_categories WHERE id = ?",
+            (major_category_id,)
+        )
+        
+        # Reorder remaining categories
+        self.cursor.execute(
+            "UPDATE major_categories SET sort_order = sort_order - 1 WHERE project_id = ? AND sort_order > ?",
+            (project_id, sort_order)
+        )
+        
+        self.conn.commit()
+        return True
+    
     # Subcategory (subheading) operations
     def create_subcategory(self, major_category_id, name):
         """Create a new subcategory"""

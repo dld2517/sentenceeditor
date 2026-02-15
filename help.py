@@ -4,59 +4,7 @@ Help System for Outline Management System
 Provides detailed help documentation for outline_editor and sentence_maintenance
 """
 
-import os
-import sys
-import tty
-import termios
-
-
-class Colors:
-    """ANSI color codes for terminal output"""
-    RESET = '\033[0m'
-    BRIGHT_BLUE = '\033[94m'
-    BRIGHT_CYAN = '\033[96m'
-    BRIGHT_GREEN = '\033[92m'
-    BRIGHT_YELLOW = '\033[93m'
-    BRIGHT_WHITE = '\033[97m'
-    CYAN = '\033[36m'
-    DIM = '\033[2m'
-    BLUE_BG = '\033[44m'
-
-
-def clear_screen():
-    """Clear the terminal screen"""
-    os.system('clear' if os.name != 'nt' else 'cls')
-
-
-def get_terminal_size():
-    """Get terminal size, default to 24x80 if unable to determine"""
-    try:
-        rows, cols = os.popen('stty size', 'r').read().split()
-        return int(rows), int(cols)
-    except:
-        return 24, 80
-
-
-def getch():
-    """Get a single character from stdin without echo"""
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
-        # Check for escape sequences (like F1)
-        if ch == '\x1b':
-            # Read the next two characters
-            ch2 = sys.stdin.read(1)
-            if ch2 == 'O':
-                ch3 = sys.stdin.read(1)
-                return '\x1b' + ch2 + ch3
-            elif ch2 == '[':
-                ch3 = sys.stdin.read(1)
-                return '\x1b' + ch2 + ch3
-        return ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+from ui_utils import Colors, Screen, Input
 
 
 def chunk_content(lines, max_lines):
@@ -67,6 +15,60 @@ def chunk_content(lines, max_lines):
     for line in lines:
         current_chunk.append(line)
         if len(current_chunk) >= max_lines:
+            chunks.append('\n'.join(current_chunk))
+            current_chunk = []
+    
+    if current_chunk:
+        chunks.append('\n'.join(current_chunk))
+    
+    return chunks
+
+
+def show_paged_help(content_lines, title):
+    """Display help content with dynamic paging based on terminal height"""
+    rows, cols = Screen.get_size()
+    
+    # Reserve lines for header (3 lines) and navigation bar (4 lines)
+    available_lines = rows - 7
+    
+    # Chunk the content
+    pages = chunk_content(content_lines, available_lines)
+    current_page = 0
+    total_pages = len(pages)
+    
+    while True:
+        Screen.clear()
+        
+        # Header
+        print(f"{Colors.BLUE_BG}{' ' * cols}{Colors.RESET}")
+        print(f"{Colors.BLUE_BG}{Colors.BRIGHT_WHITE}{title:^{cols}}{Colors.RESET}")
+        print(f"{Colors.BLUE_BG}{' ' * cols}{Colors.RESET}")
+        print()
+        
+        # Display current page
+        print(pages[current_page])
+        
+        # Navigation bar
+        print()
+        print(f"{Colors.DIM}{'─' * cols}{Colors.RESET}")
+        nav_text = f"Page {current_page + 1}/{total_pages}  |  "
+        nav_text += f"{Colors.BRIGHT_YELLOW}h{Colors.RESET}:prev  "
+        nav_text += f"{Colors.BRIGHT_YELLOW}l{Colors.RESET}:next  "
+        nav_text += f"{Colors.BRIGHT_YELLOW}q{Colors.RESET}:quit"
+        print(nav_text)
+        print(f"{Colors.DIM}{'─' * cols}{Colors.RESET}")
+        
+        # Get single keypress
+        ch = Input.getch()
+        
+        if ch == 'q' or ch == 'Q':
+            break
+        elif ch == 'h' or ch == 'H':
+            if current_page > 0:
+                current_page -= 1
+        elif ch == 'l' or ch == 'L':
+            if current_page < total_pages - 1:
+                current_page += 1
             chunks.append('\n'.join(current_chunk))
             current_chunk = []
     

@@ -4,61 +4,7 @@ Inline editor with vim-style commands
 """
 
 import sys
-import tty
-import termios
-
-class Colors:
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
-    
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    CYAN = '\033[36m'
-    
-    BRIGHT_GREEN = '\033[92m'
-    BRIGHT_YELLOW = '\033[93m'
-    BRIGHT_CYAN = '\033[96m'
-    BRIGHT_WHITE = '\033[97m'
-    BRIGHT_RED = '\033[91m'
-
-
-def getch():
-    """Get a single character from stdin"""
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
-
-
-def get_cursor_position():
-    """Get current cursor position (row, col)"""
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        sys.stdout.write('\033[6n')
-        sys.stdout.flush()
-        
-        # Read response: ESC [ row ; col R
-        response = ''
-        while True:
-            ch = sys.stdin.read(1)
-            response += ch
-            if ch == 'R':
-                break
-        
-        # Parse response
-        if response.startswith('\033[') and response.endswith('R'):
-            coords = response[2:-1].split(';')
-            return int(coords[0]), int(coords[1])
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return 1, 1
+from ui_utils import Colors, Screen, Input
 
 
 def edit_line_inline(line_num, current_text):
@@ -77,14 +23,14 @@ def edit_line_inline(line_num, current_text):
     print(f"{Colors.BRIGHT_WHITE}Cursor: {Colors.BRIGHT_WHITE}WHITE{Colors.RESET}=normal {Colors.BRIGHT_RED}RED{Colors.RESET}=insert{Colors.RESET}\n")
     
     # Save the starting cursor position (row, col)
-    start_row, start_col = get_cursor_position()
+    start_row, start_col = Screen.get_cursor_position()
     
     def redraw():
         """Redraw the edit line from the saved position"""
         # Move cursor back to saved position
-        sys.stdout.write(f'\033[{start_row};{start_col}H')
+        Screen.move_cursor(start_row, start_col)
         # Clear from cursor to end of screen
-        sys.stdout.write('\033[J')
+        Screen.clear_from_cursor()
         
         # Show line number
         sys.stdout.write(f"{Colors.GREEN}[{line_num}]{Colors.RESET} ")
@@ -110,7 +56,7 @@ def edit_line_inline(line_num, current_text):
     redraw()
     
     while True:
-        ch = getch()
+        ch = Input.getch()
         
         if mode == 'normal':
             if ch == 'i':

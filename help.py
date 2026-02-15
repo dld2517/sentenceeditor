@@ -69,60 +69,6 @@ def show_paged_help(content_lines, title):
         elif ch == 'l' or ch == 'L':
             if current_page < total_pages - 1:
                 current_page += 1
-            chunks.append('\n'.join(current_chunk))
-            current_chunk = []
-    
-    if current_chunk:
-        chunks.append('\n'.join(current_chunk))
-    
-    return chunks
-
-
-def show_paged_help(content_lines, title):
-    """Display help content with dynamic paging based on terminal height"""
-    rows, cols = get_terminal_size()
-    
-    # Reserve lines for header (3 lines) and navigation bar (4 lines)
-    available_lines = rows - 7
-    
-    # Chunk the content
-    pages = chunk_content(content_lines, available_lines)
-    current_page = 0
-    total_pages = len(pages)
-    
-    while True:
-        clear_screen()
-        
-        # Header
-        print(f"{Colors.BLUE_BG}{' ' * cols}{Colors.RESET}")
-        print(f"{Colors.BLUE_BG}{Colors.BRIGHT_WHITE}{title:^{cols}}{Colors.RESET}")
-        print(f"{Colors.BLUE_BG}{' ' * cols}{Colors.RESET}")
-        print()
-        
-        # Display current page
-        print(pages[current_page])
-        
-        # Navigation bar
-        print()
-        print(f"{Colors.DIM}{'─' * cols}{Colors.RESET}")
-        nav_text = f"Page {current_page + 1}/{total_pages}  |  "
-        nav_text += f"{Colors.BRIGHT_YELLOW}h{Colors.RESET}:prev  "
-        nav_text += f"{Colors.BRIGHT_YELLOW}l{Colors.RESET}:next  "
-        nav_text += f"{Colors.BRIGHT_YELLOW}q{Colors.RESET}:quit"
-        print(nav_text)
-        print(f"{Colors.DIM}{'─' * cols}{Colors.RESET}")
-        
-        # Get single keypress
-        ch = getch()
-        
-        if ch == 'q' or ch == 'Q':
-            break
-        elif ch == 'h' or ch == 'H':
-            if current_page > 0:
-                current_page -= 1
-        elif ch == 'l' or ch == 'L':
-            if current_page < total_pages - 1:
-                current_page += 1
 
 
 def show_outline_editor_help():

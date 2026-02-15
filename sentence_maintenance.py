@@ -8,6 +8,9 @@ import sqlite3
 import os
 import re
 import string
+import sys
+import tty
+import termios
 from help import show_sentence_maintenance_help
 
 
@@ -50,6 +53,28 @@ def get_terminal_size():
 def clear_screen():
     """Clear the terminal screen"""
     os.system('clear' if os.name != 'nt' else 'cls')
+
+
+def getch():
+    """Get a single character from stdin without echo"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+        # Check for escape sequences (like F1)
+        if ch == '\x1b':
+            # Read the next two characters
+            ch2 = sys.stdin.read(1)
+            if ch2 == 'O':
+                ch3 = sys.stdin.read(1)
+                return '\x1b' + ch2 + ch3
+            elif ch2 == '[':
+                ch3 = sys.stdin.read(1)
+                return '\x1b' + ch2 + ch3
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 class SentenceMaintenance:
@@ -285,14 +310,34 @@ def main():
         ]
         print_command_bar(commands)
         
-        cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
+        # Check for F1 key first (non-blocking)
+        print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
+        first_char = getch()
+        
+        # F1 key is typically \x1bOP or \x1b[11~
+        if first_char == '\x1b':
+            # Read escape sequence
+            second_char = sys.stdin.read(1)
+            if second_char == 'O':
+                third_char = sys.stdin.read(1)
+                if third_char == 'P':  # F1 key
+                    print()  # New line after prompt
+                    show_sentence_maintenance_help()
+                    continue
+            elif second_char == '[':
+                # Could be F1 as \x1b[11~
+                rest = sys.stdin.read(3)
+                if rest == '11~':  # F1 key
+                    print()  # New line after prompt
+                    show_sentence_maintenance_help()
+                    continue
+        
+        # Not F1, so read the rest of the line
+        print(first_char, end='', flush=True)
+        rest_of_line = input()
+        cmd = (first_char + rest_of_line).strip()
         
         if not cmd:
-            continue
-        
-        # Check for F1 help key (escape sequence: \x1bOP)
-        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
-            show_sentence_maintenance_help()
             continue
         
         command = cmd[0].lower()

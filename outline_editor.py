@@ -8,6 +8,8 @@ import os
 import sys
 import string
 import re
+import tty
+import termios
 from project_state import get_active_project, set_active_project
 from inline_editor import edit_line_inline
 from help import show_outline_editor_help
@@ -329,6 +331,28 @@ def get_terminal_size():
         return 24, 80
 
 
+def getch():
+    """Get a single character from stdin without echo"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+        # Check for escape sequences (like F1)
+        if ch == '\x1b':
+            # Read the next two characters
+            ch2 = sys.stdin.read(1)
+            if ch2 == 'O':
+                ch3 = sys.stdin.read(1)
+                return '\x1b' + ch2 + ch3
+            elif ch2 == '[':
+                ch3 = sys.stdin.read(1)
+                return '\x1b' + ch2 + ch3
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
 def print_command_bar(current_heading_name=None, heading_key=None, current_subheading_name=None, subheading_key=None):
     """Print command bar at bottom of screen"""
     rows, cols = get_terminal_size()
@@ -568,14 +592,34 @@ def main():
         
         print_command_bar(current_major_category_name, current_heading_key, current_subcategory_name, current_subheading_key)
         
-        cmd = input(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}").strip()
+        # Check for F1 key first (non-blocking)
+        print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
+        first_char = getch()
+        
+        # F1 key is typically \x1bOP or \x1b[11~
+        if first_char == '\x1b':
+            # Read escape sequence
+            second_char = sys.stdin.read(1)
+            if second_char == 'O':
+                third_char = sys.stdin.read(1)
+                if third_char == 'P':  # F1 key
+                    print()  # New line after prompt
+                    show_outline_editor_help()
+                    continue
+            elif second_char == '[':
+                # Could be F1 as \x1b[11~
+                rest = sys.stdin.read(3)
+                if rest == '11~':  # F1 key
+                    print()  # New line after prompt
+                    show_outline_editor_help()
+                    continue
+        
+        # Not F1, so read the rest of the line
+        print(first_char, end='', flush=True)
+        rest_of_line = input()
+        cmd = (first_char + rest_of_line).strip()
         
         if not cmd:
-            continue
-        
-        # Check for F1 help key (escape sequence: \x1bOP)
-        if cmd == '\x1bOP' or cmd.lower() == 'f1' or cmd == '?':
-            show_outline_editor_help()
             continue
         
         command = cmd[0].lower()

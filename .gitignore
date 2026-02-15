@@ -1,3 +1,5 @@
 # Ignore SQLite database files
 *.db
 project_outlines.db
+.project_state.json
+__pycache__/*

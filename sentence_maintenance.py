@@ -56,22 +56,12 @@ def clear_screen():
 
 
 def getch():
-    """Get a single character from stdin without echo"""
+    """Get a single character from stdin"""
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
-        tty.setraw(sys.stdin.fileno())
+        tty.setraw(fd)
         ch = sys.stdin.read(1)
-        # Check for escape sequences (like F1)
-        if ch == '\x1b':
-            # Read the next two characters
-            ch2 = sys.stdin.read(1)
-            if ch2 == 'O':
-                ch3 = sys.stdin.read(1)
-                return '\x1b' + ch2 + ch3
-            elif ch2 == '[':
-                ch3 = sys.stdin.read(1)
-                return '\x1b' + ch2 + ch3
         return ch
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -312,56 +302,31 @@ def main():
         
         # Check for F1 key first
         print(f"{Colors.BRIGHT_GREEN}> {Colors.RESET}", end='', flush=True)
-        first_char = getch()
+        ch = getch()
         
-        # F1 key is typically \x1bOP or \x1b[11~
-        if first_char == '\x1b':
-            # Read escape sequence in raw mode
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(fd)
-                second_char = sys.stdin.read(1)
-                if second_char == 'O':
-                    third_char = sys.stdin.read(1)
-                    if third_char == 'P':  # F1 key (\x1bOP)
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                        print()  # New line after prompt
-                        show_sentence_maintenance_help()
-                        continue
-                    else:
-                        # Not F1, restore and continue with input
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                        print('\x1b' + second_char + third_char, end='', flush=True)
-                        rest_of_line = input()
-                        cmd = ('\x1b' + second_char + third_char + rest_of_line).strip()
-                elif second_char == '[':
-                    # Could be F1 as \x1b[11~ or other escape sequence
-                    rest = sys.stdin.read(3)
-                    if rest == '11~':  # F1 key
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                        print()  # New line after prompt
-                        show_sentence_maintenance_help()
-                        continue
-                    else:
-                        # Not F1, restore and continue with input
-                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                        print('\x1b' + second_char + rest, end='', flush=True)
-                        rest_of_line = input()
-                        cmd = ('\x1b' + second_char + rest + rest_of_line).strip()
-                else:
-                    # Unknown escape sequence
-                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                    print('\x1b' + second_char, end='', flush=True)
-                    rest_of_line = input()
-                    cmd = ('\x1b' + second_char + rest_of_line).strip()
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        # Check if it's escape sequence (F1 starts with ESC)
+        if ch == '\x1b':
+            # Read next characters
+            ch2 = getch()
+            ch3 = getch()
+            
+            full_seq = ch + ch2 + ch3
+            
+            # Check for F1 (ESC O P)
+            if full_seq == '\x1bOP':
+                print()  # New line after prompt
+                show_sentence_maintenance_help()
+                continue
+            else:
+                # Not F1, treat as regular input
+                print(full_seq, end='', flush=True)
+                rest_of_line = input()
+                cmd = (full_seq + rest_of_line).strip()
         else:
-            # Not an escape sequence, read the rest of the line normally
-            print(first_char, end='', flush=True)
+            # Regular character, read the rest of the line
+            print(ch, end='', flush=True)
             rest_of_line = input()
-            cmd = (first_char + rest_of_line).strip()
+            cmd = (ch + rest_of_line).strip()
         
         if not cmd:
             continue

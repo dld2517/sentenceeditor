@@ -34,8 +34,7 @@ class Database:
                 name TEXT NOT NULL,
                 sort_order INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-                UNIQUE(project_id, name)
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS subcategories (
@@ -44,8 +43,7 @@ class Database:
                 name TEXT NOT NULL,
                 sort_order INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (major_category_id) REFERENCES major_categories(id) ON DELETE CASCADE,
-                UNIQUE(major_category_id, name)
+                FOREIGN KEY (major_category_id) REFERENCES major_categories(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS sentences (

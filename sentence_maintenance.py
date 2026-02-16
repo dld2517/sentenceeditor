@@ -95,7 +95,11 @@ def display_all_projects(db, collapsed_projects, page=0, items_per_page=5):
 def main():
     """Main sentence maintenance interface"""
     db = Database()
-    collapsed_projects = set()
+    
+    # Start with all projects collapsed
+    projects = db.get_projects()
+    collapsed_projects = set(proj_id for proj_id, _ in projects)
+    
     current_page = 0
     
     while True:
@@ -103,6 +107,13 @@ def main():
         UI.print_header("SENTENCE MAINTENANCE")
         
         project_map, total_pages = display_all_projects(db, collapsed_projects, current_page)
+        
+        # Show helpful prompt if all projects are collapsed
+        all_projects = db.get_projects()
+        all_collapsed = all(proj_id in collapsed_projects for proj_id, _ in all_projects)
+        
+        if all_collapsed and all_projects:
+            print(f"\n{Colors.BRIGHT_CYAN}💡 Tip:{Colors.RESET} Use {Colors.BRIGHT_YELLOW}@<letter>{Colors.RESET} to expand a project (e.g., {Colors.BRIGHT_YELLOW}@a{Colors.RESET})\n")
         
         commands = [
             ("@x", "toggle"),

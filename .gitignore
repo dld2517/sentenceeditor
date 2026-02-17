@@ -3,3 +3,4 @@
 project_outlines.db
 .project_state.json
 __pycache__/*
+sentence_editor.conf

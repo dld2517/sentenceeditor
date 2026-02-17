@@ -80,7 +80,7 @@ def main():
     # Export text file
     if format_choice in ['1', '3']:
         print(f"\n{Colors.DIM}Exporting to text file...{Colors.RESET}")
-        txt_file = exporter.export_to_text(db, project_id, output_filename)
+        txt_file = exporter.export_to_text(db, project_id, project_name)
         if txt_file:
             UI.success(f"Text file saved: {Colors.BRIGHT_WHITE}{txt_file}{Colors.RESET}")
             success_count += 1
@@ -91,7 +91,7 @@ def main():
     if format_choice in ['2', '3']:
         print(f"\n{Colors.DIM}Exporting to Word document...{Colors.RESET}")
         try:
-            docx_file = exporter.export_to_word(db, project_id, output_filename)
+            docx_file = exporter.export_to_word(db, project_id, project_name)
             if docx_file:
                 UI.success(f"Word document saved: {Colors.BRIGHT_WHITE}{docx_file}{Colors.RESET}")
                 success_count += 1

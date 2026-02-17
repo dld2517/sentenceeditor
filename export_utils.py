@@ -4,33 +4,40 @@ Export Utilities - Export functionality for text and Word documents
 """
 
 import os
+from datetime import datetime
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from config import get_config
 
 
 class ExportManager:
     """Manage export operations"""
     
-    def __init__(self, export_dir="document-exports"):
-        self.export_dir = export_dir
-        self.ensure_export_folder()
-    
-    def ensure_export_folder(self):
-        """Create export folder if it doesn't exist"""
-        if not os.path.exists(self.export_dir):
-            os.makedirs(self.export_dir)
-        return self.export_dir
+    def __init__(self, project_name=None):
+        self.config = get_config()
+        self.project_name = project_name
+        self.datecode = datetime.now().strftime('%Y%m%d')
     
     def get_export_path(self, filename):
-        """Get full export path for a filename"""
-        return os.path.join(self.export_dir, filename)
+        """Get full export path for a filename in project/datecode folder"""
+        if self.project_name:
+            # Use project-based folder structure
+            project_dir = self.config.get_project_export_path(self.project_name, self.datecode)
+            return os.path.join(project_dir, filename)
+        else:
+            # Fallback to base export directory
+            export_dir = self.config.get_export_directory()
+            return os.path.join(export_dir, filename)
     
     def export_to_text(self, db, project_id, project_name):
         """
         Export project to plain text file
         Returns: filepath or None on error
         """
+        # Set project name for export path
+        self.project_name = project_name
+        
         # Get structured content
         content = self._get_structured_content(db, project_id)
         if not content:
@@ -71,6 +78,9 @@ class ExportManager:
         Export project to APA7-formatted Word document
         Returns: filepath or None on error
         """
+        # Set project name for export path
+        self.project_name = project_name
+        
         # Get structured content
         content = self._get_structured_content(db, project_id)
         if not content:

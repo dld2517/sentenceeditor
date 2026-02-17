@@ -4,12 +4,18 @@ Database Utilities - Centralized database operations
 """
 
 import sqlite3
+from config import get_config
 
 
 class Database:
     """Database connection and operations manager"""
     
-    def __init__(self, db_path="project_outlines.db"):
+    def __init__(self, db_path=None):
+        # Use configured database path if not specified
+        if db_path is None:
+            config = get_config()
+            db_path = config.get_database_path()
+        
         self.db_path = db_path
         self.conn = None
         self.cursor = None

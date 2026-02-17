@@ -77,18 +77,20 @@ class Config:
         
         return export_dir
     
-    def get_project_export_path(self, project_name, datecode):
+    def get_project_export_path(self, project_name):
         """
-        Get export path for a specific project with datecode
-        Creates: export-directory/project_name/datecode/
+        Get versioned export path for a specific project
+        Creates: export-directory/project_name/yyyy-mm-dd-v1/
+        If that exists, creates yyyy-mm-dd-v2, etc.
         
         Args:
             project_name: Name of the project
-            datecode: Date code (e.g., '20260215')
         
         Returns:
-            Full path to project export directory
+            Full path to versioned project export directory
         """
+        from datetime import datetime
+        
         export_dir = self.get_export_directory()
         
         # Sanitize project name for filesystem
@@ -96,13 +98,21 @@ class Config:
                                     for c in project_name)
         safe_project_name = safe_project_name.strip().replace(' ', '_')
         
-        # Build path: export-directory/project_name/datecode/
-        project_export_path = os.path.join(export_dir, safe_project_name, datecode)
+        # Get today's date in yyyy-mm-dd format
+        today = datetime.now().strftime('%Y-%m-%d')
         
-        # Create directory if it doesn't exist
-        os.makedirs(project_export_path, exist_ok=True)
+        # Build base path: export-directory/project_name/
+        project_dir = os.path.join(export_dir, safe_project_name)
+        os.makedirs(project_dir, exist_ok=True)
         
-        return project_export_path
+        # Find next available version number
+        version = 1
+        while True:
+            versioned_dir = os.path.join(project_dir, f"{today}-v{version}")
+            if not os.path.exists(versioned_dir):
+                os.makedirs(versioned_dir)
+                return versioned_dir
+            version += 1
     
     def set(self, key, value):
         """Set configuration value and save"""
@@ -138,8 +148,12 @@ if __name__ == "__main__":
     config = Config()
     config.display_config()
     
-    # Test project export path
-    from datetime import datetime
-    datecode = datetime.now().strftime('%Y%m%d')
-    export_path = config.get_project_export_path("My Test Project", datecode)
+    # Test project export path (versioned)
+    export_path = config.get_project_export_path("My Test Project")
     print(f"\nExample export path: {export_path}")
+    
+    # Test again to see versioning
+    export_path2 = config.get_project_export_path("My Test Project")
+    print(f"Second export path: {export_path2}")
+    print(f"\nNote: Each export creates a new versioned directory to prevent overwriting.")
+

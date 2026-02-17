@@ -17,14 +17,15 @@ class ExportManager:
     def __init__(self, project_name=None):
         self.config = get_config()
         self.project_name = project_name
-        self.datecode = datetime.now().strftime('%Y%m%d')
+        self.versioned_dir = None  # Will be set when first export happens
     
     def get_export_path(self, filename):
-        """Get full export path for a filename in project/datecode folder"""
+        """Get full export path for a filename in versioned project folder"""
         if self.project_name:
-            # Use project-based folder structure
-            project_dir = self.config.get_project_export_path(self.project_name, self.datecode)
-            return os.path.join(project_dir, filename)
+            # Get or create versioned directory (only once per export session)
+            if self.versioned_dir is None:
+                self.versioned_dir = self.config.get_project_export_path(self.project_name)
+            return os.path.join(self.versioned_dir, filename)
         else:
             # Fallback to base export directory
             export_dir = self.config.get_export_directory()

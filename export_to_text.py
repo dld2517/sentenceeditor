@@ -8,22 +8,21 @@ import sys
 from ui_utils import Colors, Screen, UI
 from database_utils import Database
 from export_utils import ExportManager
+from config import DB_PATH
 
 
 def main():
     """Main function"""
-    db_path = "project_outlines.db"
-    
     Screen.clear()
     
-    if not os.path.exists(db_path):
+    if not os.path.exists(DB_PATH):
         UI.print_header("EXPORT PROJECT")
-        UI.error(f"Database file '{db_path}' not found.")
-        print(f"{Colors.DIM}Make sure you're running this script in the same directory as your database.{Colors.RESET}\n")
+        UI.error(f"Database file '{DB_PATH}' not found.")
+        print(f"{Colors.DIM}Make sure the database exists at the configured location.{Colors.RESET}\n")
         sys.exit(1)
     
     # Initialize database and export manager
-    db = Database(db_path)
+    db = Database()  # Uses DB_PATH by default
     exporter = ExportManager()
     
     # Get projects

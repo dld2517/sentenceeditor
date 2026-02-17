@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 from typing import List, Tuple, Optional
 from project_state import set_active_project
+from config import DB_PATH
 
 # ANSI Color codes
 class Colors:
@@ -32,8 +33,9 @@ class Colors:
 
 
 class ProjectOutlineManager:
-    def __init__(self, db_path: str = "project_outlines.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        # Use configured database path if not specified
+        self.db_path = db_path if db_path is not None else DB_PATH
         self.conn = None
         self.cursor = None
         self.initialize_database()
@@ -134,9 +136,9 @@ def main_menu():
         print(f"{Colors.BRIGHT_YELLOW}2{Colors.RESET}. {Colors.BRIGHT_WHITE}Select Project (Set as Active){Colors.RESET}")
         print(f"{Colors.BRIGHT_YELLOW}3{Colors.RESET}. {Colors.BRIGHT_WHITE}List All Projects{Colors.RESET}")
         print(f"{Colors.BRIGHT_YELLOW}4{Colors.RESET}. {Colors.BRIGHT_WHITE}Delete Project{Colors.RESET}")
-        print(f"{Colors.BRIGHT_YELLOW}5{Colors.RESET}. {Colors.BRIGHT_WHITE}Exit{Colors.RESET}")
+        print(f"{Colors.BRIGHT_YELLOW}Q{Colors.RESET}. {Colors.BRIGHT_BLACK}Quit{Colors.RESET}")
         
-        choice = input(f"\n{Colors.BRIGHT_GREEN}Enter your choice (1-5):{Colors.RESET} ").strip()
+        choice = input(f"\n{Colors.BRIGHT_GREEN}Enter your choice (1-4, Q):{Colors.RESET} ").strip().upper()
         
         if choice == "1":
             create_project_workflow(manager)
@@ -146,7 +148,7 @@ def main_menu():
             list_projects_workflow(manager)
         elif choice == "4":
             delete_project_workflow(manager)
-        elif choice == "5":
+        elif choice == "Q":
             manager.close()
             break
         else:

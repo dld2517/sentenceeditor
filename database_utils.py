@@ -4,19 +4,15 @@ Database Utilities - Centralized database operations
 """
 
 import sqlite3
-from config import get_config
+from config import DB_PATH
 
 
 class Database:
     """Database connection and operations manager"""
     
     def __init__(self, db_path=None):
-        # Use configured database path if not specified
-        if db_path is None:
-            config = get_config()
-            db_path = config.get_database_path()
-        
-        self.db_path = db_path
+        # Use configured database path constant if not specified
+        self.db_path = db_path if db_path is not None else DB_PATH
         self.conn = None
         self.cursor = None
         self.initialize()

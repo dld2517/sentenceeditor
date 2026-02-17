@@ -143,6 +143,10 @@ def get_config():
     return _config
 
 
+# Global database path constant - used by all modules
+DB_PATH = get_config().get_database_path()
+
+
 if __name__ == "__main__":
     # Test configuration
     config = Config()
@@ -156,4 +160,3 @@ if __name__ == "__main__":
     export_path2 = config.get_project_export_path("My Test Project")
     print(f"Second export path: {export_path2}")
     print(f"\nNote: Each export creates a new versioned directory to prevent overwriting.")
-

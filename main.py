@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 from project_state import get_active_project
+from config import DB_PATH
 
 # ANSI Color codes
 class Colors:
@@ -126,18 +127,18 @@ def launch_sentence_maintenance():
 
 def show_info():
     """Show information about the database and active project"""
-    db_file = "project_outlines.db"
-    
     rows, cols = get_terminal_size()
     print(f"{Colors.BRIGHT_BLACK}{'─' * cols}{Colors.RESET}")
     
     # Show database info
-    if os.path.exists(db_file):
-        size = os.path.getsize(db_file)
+    if os.path.exists(DB_PATH):
+        size = os.path.getsize(DB_PATH)
         size_kb = size / 1024
-        print(f"{Colors.DIM}Database: {db_file} ({size_kb:.1f} KB){Colors.RESET}")
+        print(f"{Colors.DIM}Database: {DB_PATH}{Colors.RESET}")
+        print(f"{Colors.DIM}Size: {size_kb:.1f} KB ({size:,} bytes){Colors.RESET}")
     else:
-        print(f"{Colors.DIM}No database found - a new one will be created on first use{Colors.RESET}")
+        print(f"{Colors.DIM}Database: {DB_PATH}{Colors.RESET}")
+        print(f"{Colors.YELLOW}No database found - a new one will be created on first use{Colors.RESET}")
     
     # Show active project
     active_id, active_name = get_active_project()

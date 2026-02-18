@@ -20,7 +20,7 @@ def edit_line_inline(line_num, current_text):
     # Print header
     print(f"\n{Colors.BRIGHT_CYAN}Editing line {line_num}{Colors.RESET}")
     print(f"{Colors.BRIGHT_WHITE}Commands: {Colors.BRIGHT_YELLOW}i{Colors.RESET}=insert {Colors.BRIGHT_YELLOW}a{Colors.RESET}=append {Colors.BRIGHT_YELLOW}x{Colors.RESET}=delete {Colors.BRIGHT_YELLOW}d{Colors.RESET}=delete word {Colors.BRIGHT_YELLOW}ESC{Colors.RESET}=save {Colors.BRIGHT_YELLOW}q{Colors.RESET}=cancel{Colors.RESET}")
-    print(f"{Colors.BRIGHT_WHITE}Cursor: {Colors.BRIGHT_WHITE}WHITE{Colors.RESET}=normal {Colors.BRIGHT_RED}RED{Colors.RESET}=insert{Colors.RESET}\n")
+    print(f"{Colors.BRIGHT_WHITE}Cursor: {Colors.BRIGHT_GREEN}GREEN{Colors.RESET}=normal {Colors.BRIGHT_RED}RED{Colors.RESET}=insert{Colors.RESET}\n")
     
     # Save the starting cursor position (row, col)
     start_row, start_col = Screen.get_cursor_position()
@@ -39,7 +39,7 @@ def edit_line_inline(line_num, current_text):
         if mode == 'insert':
             cursor_color = Colors.BRIGHT_RED
         else:
-            cursor_color = Colors.BRIGHT_WHITE
+            cursor_color = Colors.BRIGHT_GREEN
         
         # Display text with colored cursor
         if cursor_pos < len(text):

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Editor Utilities - Editor-specific helper functions
+Editor Utilities - Editor-specific helper functions with paging support
 """
 
 import string
-from ui_utils import Colors
+from ui_utils import Colors, Screen
 
 
 class EditorHelpers:
@@ -98,27 +98,33 @@ class EditorHelpers:
         return structure
     
     @staticmethod
-    def print_outline(db, project_id, collapsed_headings=None):
+    def print_outline(db, project_id, collapsed_headings=None, page=0, lines_per_page=None):
         """
-        Print the complete outline with collapsible headings
-        Returns: (heading_map, subheading_map)
+        Print the complete outline with collapsible headings and paging
+        Returns: (heading_map, subheading_map, total_pages)
         """
         if collapsed_headings is None:
             collapsed_headings = set()
+        
+        # Calculate lines_per_page based on terminal height if not specified
+        if lines_per_page is None:
+            rows, _ = Screen.get_size()
+            # Reserve space for: header(3) + context(2) + command bar(2) + prompt(2) + buffer(2) = 11 lines
+            lines_per_page = max(5, rows - 11)
         
         major_categories = db.get_major_categories(project_id)
         
         if not major_categories:
             print(f"\n{Colors.DIM}(No headings yet - use 'ha <heading name>' to create first heading){Colors.RESET}\n")
-            return {}, {}
+            return {}, {}, 1
         
         # Build maps
         heading_map = EditorHelpers.build_heading_map(db, project_id)
         subheading_map = EditorHelpers.build_subheading_map(db, project_id, heading_map)
         structure = EditorHelpers.build_outline_structure(db, project_id)
         
-        # Print unified view
-        print()
+        # Build all output lines first
+        all_lines = []
         line_num = 1
         
         for idx, (mc_id, mc_name, mc_order) in enumerate(major_categories):
@@ -129,11 +135,12 @@ class EditorHelpers:
             
             # Print heading with collapse indicator
             collapse_indicator = f"{Colors.DIM}[+]{Colors.RESET}" if is_collapsed else f"{Colors.DIM}[-]{Colors.RESET}"
-            print(f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}")
+            heading_line = f"{collapse_indicator} {Colors.BRIGHT_BLUE}[{letter}]{Colors.RESET} {Colors.BOLD}{Colors.BRIGHT_WHITE}{mc_name}{Colors.RESET}"
+            all_lines.append(heading_line)
             
             # Skip content if collapsed
             if is_collapsed:
-                print()
+                all_lines.append("")  # Blank line
                 continue
             
             # Get subcategories for this heading
@@ -145,20 +152,39 @@ class EditorHelpers:
                 
                 # If subcategory has a name, show it
                 if sc_name:
-                    print(f"  {Colors.CYAN}[{subheading_key}]{Colors.RESET} {Colors.BRIGHT_CYAN}{sc_name}{Colors.RESET}")
+                    subheading_line = f"  {Colors.CYAN}[{subheading_key}]{Colors.RESET} {Colors.BRIGHT_CYAN}{sc_name}{Colors.RESET}"
+                    all_lines.append(subheading_line)
                 
                 # Print sentences under this subcategory
                 if mc_id in structure and sc_id in structure[mc_id]:
                     for sentence_id, content in structure[mc_id][sc_id]:
-                        print(f"    {Colors.GREEN}[{line_num}]{Colors.RESET} {Colors.BRIGHT_WHITE}{content}{Colors.RESET}")
+                        sentence_line = f"    {Colors.GREEN}[{line_num}]{Colors.RESET} {Colors.BRIGHT_WHITE}{content}{Colors.RESET}"
+                        all_lines.append(sentence_line)
                         line_num += 1
             
-            print()  # Blank line between headings
+            all_lines.append("")  # Blank line between headings
+        
+        # Calculate paging
+        total_lines = len(all_lines)
+        total_pages = max(1, (total_lines + lines_per_page - 1) // lines_per_page)
+        start_idx = page * lines_per_page
+        end_idx = min(start_idx + lines_per_page, total_lines)
+        
+        # Print page indicator
+        if total_pages > 1:
+            print(f"\n{Colors.DIM}Page {page + 1}/{total_pages} (use h/l to navigate){Colors.RESET}\n")
+        else:
+            print()
+        
+        # Print current page
+        page_lines = all_lines[start_idx:end_idx]
+        for line in page_lines:
+            print(line)
         
         if line_num == 1:
             print(f"{Colors.DIM}(No content yet - use '+ <text>' to add sentences){Colors.RESET}\n")
         
-        return heading_map, subheading_map
+        return heading_map, subheading_map, total_pages
 
 
 class CollapseManager:

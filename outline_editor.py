@@ -136,37 +136,41 @@ def main():
         ]
         UI.print_command_bar(commands)
         
-        # Read command with F1 detection
-        cmd, is_f1 = Input.read_command_with_f1()
+        # Read first character to check for single-key commands (h, l, q, ?)
+        first_char = Input.getch()
         
-        if is_f1:
+        # Handle single-key commands
+        if first_char.lower() == 'h':
+            # Previous page
+            if current_page > 0:
+                current_page -= 1
+            continue
+        
+        elif first_char.lower() == 'l':
+            # Next page
+            if current_page < total_pages - 1:
+                current_page += 1
+            continue
+        
+        elif first_char.lower() == 'q':
+            break
+        
+        elif first_char == '?':
             show_outline_editor_help()
             continue
+        
+        # For multi-character commands, show what was typed and get the rest
+        print(first_char, end='', flush=True)
+        rest_of_line = input()
+        cmd = first_char + rest_of_line
         
         if not cmd:
             continue
         
         command = cmd[0].lower()
         
-        # Quit command
-        if command == 'q':
-            break
-        
-        # Page navigation - check for single 'h' or 'l' before heading commands
-        elif cmd == 'h':
-            # Previous page
-            if current_page > 0:
-                current_page -= 1
-            continue
-        
-        elif cmd == 'l':
-            # Next page
-            if current_page < total_pages - 1:
-                current_page += 1
-            continue
-        
         # Toggle collapse/expand
-        elif command == '@':
+        if command == '@':
             match = re.match(r'^@([a-zA-Z])$', cmd, re.IGNORECASE)
             if not match:
                 UI.error("Invalid format. Use '@a' to toggle heading a")

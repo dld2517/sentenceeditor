@@ -4,7 +4,35 @@ Inline editor with vim-style commands
 """
 
 import sys
-from ui_utils import Colors, Screen, Input
+import tty
+import termios
+
+class Colors:
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+    
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    CYAN = '\033[36m'
+    
+    BRIGHT_GREEN = '\033[92m'
+    BRIGHT_YELLOW = '\033[93m'
+    BRIGHT_CYAN = '\033[96m'
+    BRIGHT_WHITE = '\033[97m'
+    BRIGHT_RED = '\033[91m'
+
+
+def getch():
+    """Get a single character from stdin"""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 
 def edit_line_inline(line_num, current_text):
@@ -17,20 +45,35 @@ def edit_line_inline(line_num, current_text):
     cursor_pos = len(text)
     mode = 'normal'
     
-    # Print header
+    # Print header once
     print(f"\n{Colors.BRIGHT_CYAN}Editing line {line_num}{Colors.RESET}")
     print(f"{Colors.BRIGHT_WHITE}Commands: {Colors.BRIGHT_YELLOW}i{Colors.RESET}=insert {Colors.BRIGHT_YELLOW}a{Colors.RESET}=append {Colors.BRIGHT_YELLOW}x{Colors.RESET}=delete {Colors.BRIGHT_YELLOW}d{Colors.RESET}=delete word {Colors.BRIGHT_YELLOW}ESC{Colors.RESET}=save {Colors.BRIGHT_YELLOW}q{Colors.RESET}=cancel{Colors.RESET}")
     print(f"{Colors.BRIGHT_WHITE}Cursor: {Colors.BRIGHT_WHITE}WHITE{Colors.RESET}=normal {Colors.BRIGHT_RED}RED{Colors.RESET}=insert{Colors.RESET}\n")
     
-    # Save the starting cursor position (row, col)
-    start_row, start_col = Screen.get_cursor_position()
-    
     def redraw():
-        """Redraw the edit line from the saved position"""
-        # Move cursor back to saved position
-        Screen.move_cursor(start_row, start_col)
-        # Clear from cursor to end of screen
-        Screen.clear_from_cursor()
+        """Redraw the edit line - handles multi-line wrapping"""
+        # Get terminal width
+        import os
+        term_width = os.get_terminal_size().columns
+        
+        # Calculate how many lines this text might occupy
+        prefix_len = len(f"[{line_num}] ")
+        total_len = prefix_len + len(text) + 10  # +10 for cursor and safety
+        lines_needed = (total_len // term_width) + 1
+        if lines_needed > 5:
+            lines_needed = 5  # Cap at 5 lines
+        
+        # Move to beginning and clear multiple lines
+        sys.stdout.write('\r')
+        for i in range(lines_needed):
+            sys.stdout.write('\033[K')  # Clear line
+            if i < lines_needed - 1:
+                sys.stdout.write('\n')  # Move to next line
+        
+        # Move back up to start
+        if lines_needed > 1:
+            sys.stdout.write(f'\033[{lines_needed-1}A')  # Move up N-1 lines
+        sys.stdout.write('\r')  # Back to beginning
         
         # Show line number
         sys.stdout.write(f"{Colors.GREEN}[{line_num}]{Colors.RESET} ")
@@ -56,7 +99,7 @@ def edit_line_inline(line_num, current_text):
     redraw()
     
     while True:
-        ch = Input.getch()
+        ch = getch()
         
         if mode == 'normal':
             if ch == 'i':

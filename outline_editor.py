@@ -87,6 +87,8 @@ def main():
     current_subcategory_id = None
     current_subcategory_name = None
     collapse_mgr = CollapseManager()
+    current_page = 0
+    total_pages = 1
     
     while True:
         Screen.clear()
@@ -98,8 +100,8 @@ def main():
         # Print header
         UI.print_header("PROJECT", project_name)
         
-        # Print outline
-        heading_map, subheading_map = EditorHelpers.print_outline(db, project_id, collapse_mgr.collapsed)
+        # Print outline with paging
+        heading_map, subheading_map, total_pages = EditorHelpers.print_outline(db, project_id, collapse_mgr.collapsed, current_page)
         
         # Find current heading key
         current_heading_key = None
@@ -123,12 +125,12 @@ def main():
         commands = [
             ("h", "a <name>", "heading"),
             ("h", "a1 <name>", "subheading"),
-            ("+ <text>", "", "add"),
+            ("+  <text>", "", "add"),
             ("i <#> <text>", "", "insert"),
             ("e <#>", "", "edit"),
             ("d <#>", "", "delete"),
             ("@a", "", "toggle"),
-            ("p", "", "refresh"),
+            ("h/l", "", "page"),
             ("?", "", "help"),
             ("q", "", "quit")
         ]
@@ -149,6 +151,19 @@ def main():
         # Quit command
         if command == 'q':
             break
+        
+        # Page navigation - check for single 'h' or 'l' before heading commands
+        elif cmd == 'h':
+            # Previous page
+            if current_page > 0:
+                current_page -= 1
+            continue
+        
+        elif cmd == 'l':
+            # Next page
+            if current_page < total_pages - 1:
+                current_page += 1
+            continue
         
         # Toggle collapse/expand
         elif command == '@':
